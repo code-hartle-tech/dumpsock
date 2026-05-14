@@ -8,38 +8,74 @@
 
 ## Where we are
 
-**Phase 0 — scaffold.** The per-project skeleton mandated by https://void.neartrace.app/claude/handoff has been laid down:
+**Phase 0 — scaffold:** ✅ complete (commit `5bc2647`).
 
-- `CLAUDE.md` (house rules: stack, voice, icon spec, CLI surface, phase plan, anti-patterns)
-- `.claude/settings.local.json` (Go tooling allow-list)
-- Memory dir at `~/.claude/projects/-Users-vz-Projects-dumpsock/memory/`
-- This file
+**Phase 1 — Go CLI feature parity + icloudpd extras:** ✅ complete on `feature/cli-skeleton`.
 
-Git repo initialized locally on `develop`. **No `gh repo create` yet** — awaiting operator confirm on:
+| Command | Status | Notes |
+|---|---|---|
+| `dumpsock` (root) | ✅ | Brand-line help, version flag, minimal default surface |
+| `dumpsock devices` | ✅ working against real iPhone | Uses go-ios; `--json` for machine output |
+| `dumpsock version` | ✅ | Injects via `-ldflags` at build time |
+| `dumpsock pull` | ✅ engine complete | Day-1 flags visible; advanced hidden behind --help |
+| `dumpsock pull --dry-run` | ✅ tested on operator's iPhone | Walks DCIM, found 793 media files, listed correctly |
 
-1. **Repo name** — `dumpsock` (clean) vs `dumpsock-cli` (CLI-scoped, leaves room for a separate GUI repo) vs other.
-2. **Project board** — new (#7) for DumpSock, or fold under existing #6 DevOps/Infrastructure.
-3. **Domain / subdomain** — `dumpsock.app` (own registrable, brand-clean) vs `dumpsock.hartle.tech` (subdomain, cheaper) vs defer until Phase 2.
+icloudpd-equivalent flags wired:
+
+- `-o, --output` (default `~/DumpSock/<device-name>`)
+- `--since / --until YYYY-MM-DD` (post-pull EXIF filter)
+- `--delete-after` + `--confirm-delete` (hard gate; AFC rm wiring is v0.1)
+- `--watch SECONDS` (daemon-style rescan loop, Ctrl-C clean)
+- `--dry-run`
+- `--udid` (multi-device disambiguation)
+
+Advanced (hidden):
+- `--parallel N`, `--until-found N`, `--no-mtime`, `--no-live-pair`, `--no-notify`, `--hash size|sha256`, `--remote-root PATH`, `--json`
+
+Pipeline complete:
+
+- `scripts/build.sh` produces all 5 cross-platform binaries (darwin arm64/amd64, linux amd64/arm64, windows amd64) — verified, ~8 MB each, statically linked
+- `scripts/build-icons.sh` renders SVG → .icns / .ico / multi-size PNG set
+- `.github/workflows/ci.yml` — gofmt + vet + build + race-test on push/PR to develop/main
+- `.github/workflows/release.yml` — tag-push triggers matrix build + draft GitHub Release
+- `internal/dedup/dedup_test.go` covers the 6 interesting branches of `PickPath`
+
+## What's still open
+
+| # | Item | Status |
+|---|---|---|
+| 1 | Operator confirms **repo name** (`dumpsock` / `dumpsock-cli` / other), **project board** (new #7 or reuse #6), **subdomain** | ⏳ awaiting |
+| 2 | Push `develop` + feature branch to origin | blocked by #1 |
+| 3 | `gh repo create` + project board entry + first issue | blocked by #1 |
+| 4 | Final-quality icon artwork (current SVG is explicit v0 placeholder) | designer commission, future phase |
+| 5 | Phase 2 — Wails GUI | future |
+| 6 | Phase 3 — localhost-bridge browser UI | future |
+| 7 | Phase 4 — codesigning, notarization, SBOM | future |
+| 8 | Phase 5 — mobile-to-mobile native app | future |
 
 ## What's running
 
-- Background process `bb486wtjk` is `iphonepd.py` pulling the operator's 74 GB iPhone library to `/Volumes/Lexar/Backup/iCloud/Photos/` per icloudpd's `YYYY-MM-DD/` paradigm. Log at `/Volumes/Lexar/Backup/iphonepd.log`. Independent of DumpSock work.
+- Local commits on `feature/cli-skeleton` (off `develop`): `5bc2647`, `f8cf038`, `f9d2f30`, `b44cf70`, `aa4a328`, `0d84fdb`. All local, nothing pushed yet.
+- Python `iphonepd.py` backup task `bb486wtjk` **failed** at 550/793 files because the Lexar SSD physically disconnected. 243 files erroring with `Permission denied: '/Volumes/Lexar'`. Drive needs to be replugged; the run is resumable (name+size dedup re-skips the 550 already on disk if the volume comes back intact).
 
 ## Next step on resume
 
-1. Operator confirms the three open decisions above (`gh` action requires it — visible-to-others state).
-2. `gh repo create code-hartle-tech/<name> --private --confirm` (private until Phase 2 / Phase 3 — public release later).
-3. `git push -u origin develop`.
-4. Create board / first issue (`chore(scaffold): phase 0 — repo skeleton + brand bible #1`).
-5. Branch `feature/cli-skeleton` off `develop`.
-6. `go mod init github.com/code-hartle-tech/<name>`.
-7. Cobra-based CLI skeleton (`dumpsock`, `dumpsock pull`, `dumpsock devices`, `dumpsock version`).
-8. Port `iphonepd.py` to Go using `github.com/danielpaulus/go-ios`.
+1. **Operator answers the three open questions** above.
+2. `gh repo create code-hartle-tech/<name> --private` (private until Phase 2).
+3. `git -C ~/Projects/dumpsock remote add origin <url> && git push -u origin develop && git push -u origin feature/cli-skeleton`.
+4. Open the first issue (`chore(scaffold): phase 0`), then `feat(pull): port iphonepd.py to Go` (already done — close on push), then a tracker for Phase 2 GUI.
+5. Tag `v0.1.0` once feature/cli-skeleton merges into develop, and again once develop merges to main — that triggers the release pipeline and produces signed-by-GitHub binaries on a draft Release.
 
-## Open questions for operator (carry over until answered)
+## Operator's 74 GB iPhone backup — practical recovery path
 
-- Repo name?
-- Project board: new or reuse?
-- Subdomain / registrable domain decision?
-- Any preference between Cobra and a hand-rolled flag parser? (Cobra is the default per `CLAUDE.md`; flagging in case operator wants stricter "no dependencies".)
-- Confirm MIT license? (Matches neartrace-mvp convention — flagging because I haven't read those LICENSE files.)
+Once the Lexar reconnects:
+
+```bash
+ls /Volumes/Lexar/Backup/iCloud/Photos | head  # confirm prior 550 survived
+bash /Volumes/Lexar/Backup/dumpsock            # Python wrapper, resumes via name+size dedup
+
+# OR (now available):
+~/Projects/dumpsock/dist/dumpsock-f9d2f30-darwin-arm64 pull -o /Volumes/Lexar/Backup/iCloud/Photos
+```
+
+Both tools target the same on-disk layout. Pick either; they're interchangeable.
