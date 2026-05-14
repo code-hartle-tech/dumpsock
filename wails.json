@@ -1,0 +1,21 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "dumpsock",
+  "outputfilename": "DumpSock",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "auto",
+  "wailsjsdir": "./frontend",
+  "version": "2",
+  "author": {
+    "name": "HARTLE.TECH",
+    "email": "contact@hartle.tech"
+  },
+  "info": {
+    "productName": "DumpSock",
+    "productVersion": "0.1.0",
+    "copyright": "© HARTLE.TECH",
+    "comments": "Plug your phone in. Wring it dry."
+  }
+}

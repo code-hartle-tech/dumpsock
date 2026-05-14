@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DumpSock</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-screen="boot">
+  <header class="titlebar" data-drag>
+    <div class="brand">
+      <img class="brandmark" src="dumpsock.svg" alt="">
+      <div class="brandtext">
+        <div class="brandname">DumpSock</div>
+        <div class="brandtag" id="tagline">Plug your phone in. Wring it dry.</div>
+      </div>
+    </div>
+    <div class="meta">
+      <span id="version">dev</span>
+      <span class="dot">·</span>
+      <span>HARTLE.TECH</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- ▼ boot / waiting for usbmuxd ▼ -->
+    <section class="panel" id="screen-boot">
+      <div class="hero">
+        <h1>Looking for a phone…</h1>
+        <p class="muted">Plug an iPhone in over USB and unlock it. If macOS asks
+          you to trust this computer, say yes.</p>
+      </div>
+    </section>
+
+    <!-- ▼ no device ▼ -->
+    <section class="panel" id="screen-empty" hidden>
+      <div class="hero">
+        <h1>No phone connected.</h1>
+        <p class="muted">Plug an iPhone into a USB port and unlock it.</p>
+        <button class="btn primary" id="btn-rescan-empty">Rescan</button>
+      </div>
+    </section>
+
+    <!-- ▼ device picked, configure pull ▼ -->
+    <section class="panel" id="screen-config" hidden>
+      <div class="card device">
+        <div class="device-row">
+          <div>
+            <div class="device-name" id="device-name">—</div>
+            <div class="device-spec" id="device-spec">—</div>
+          </div>
+          <button class="btn ghost" id="btn-rescan">Rescan</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <label class="field">
+          <span class="field-label">Output folder</span>
+          <div class="field-row">
+            <input type="text" id="output-path" placeholder="Choose a folder…" readonly>
+            <button class="btn" id="btn-pick-output">Choose…</button>
+          </div>
+        </label>
+
+        <details class="advanced">
+          <summary>Advanced options</summary>
+          <label class="field">
+            <span class="field-label">Only files from</span>
+            <input type="date" id="since" placeholder="YYYY-MM-DD">
+          </label>
+          <label class="field">
+            <span class="field-label">Only files until</span>
+            <input type="date" id="until" placeholder="YYYY-MM-DD">
+          </label>
+          <label class="check">
+            <input type="checkbox" id="no-mtime">
+            <span>Don't set file mtime to capture date</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="no-notify">
+            <span>No desktop notification when finished</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="dry-run">
+            <span>Dry run — list what would be pulled, transfer nothing</span>
+          </label>
+        </details>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary big" id="btn-pull">Pull</button>
+      </div>
+    </section>
+
+    <!-- ▼ pulling ▼ -->
+    <section class="panel" id="screen-pulling" hidden>
+      <div class="card">
+        <div class="progress-head">
+          <h2 id="progress-phase">Working…</h2>
+          <button class="btn ghost" id="btn-cancel">Cancel</button>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+        <div class="progress-counts">
+          <span><b id="count-done">0</b> / <span id="count-total">0</span></span>
+          <span class="muted" id="count-rate">—</span>
+        </div>
+        <div class="current" id="current-file">—</div>
+        <div class="stats">
+          <div><span class="muted">Pulled</span><b id="s-pulled">0</b></div>
+          <div><span class="muted">Skipped</span><b id="s-skipped">0</b></div>
+          <div><span class="muted">Suffixed</span><b id="s-suffixed">0</b></div>
+          <div><span class="muted">No date</span><b id="s-nodate">0</b></div>
+          <div><span class="muted">Errors</span><b id="s-errors">0</b></div>
+        </div>
+      </div>
+      <details class="log">
+        <summary>Log</summary>
+        <pre id="log"></pre>
+      </details>
+    </section>
+
+    <!-- ▼ done ▼ -->
+    <section class="panel" id="screen-done" hidden>
+      <div class="card success">
+        <h1 id="done-title">Done.</h1>
+        <p class="muted" id="done-summary">—</p>
+        <div class="actions">
+          <button class="btn primary" id="btn-reveal">Reveal in Finder</button>
+          <button class="btn ghost" id="btn-again">Pull again</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ▼ error toast ▼ -->
+    <div class="toast" id="toast" hidden></div>
+  </main>
+
+  <script src="main.js"></script>
+</body>
+</html>

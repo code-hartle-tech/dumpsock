@@ -32,6 +32,26 @@ var MediaExts = map[string]bool{
 
 const noDateFolder = "0000:00:00 00:00:00"
 
+// ProgressEvent is emitted at the same moments as the CLI's progress
+// lines, so a GUI or a JSON consumer can subscribe to structured updates
+// instead of parsing text. Phase is one of: "indexing", "walking",
+// "planning", "pulling", "done", "error".
+type ProgressEvent struct {
+	Phase       string `json:"phase"`
+	Message     string `json:"message,omitempty"`
+	Done        int    `json:"done,omitempty"`
+	Total       int    `json:"total,omitempty"`
+	Current     string `json:"current,omitempty"`
+	Pulled      int    `json:"pulled,omitempty"`
+	PreSkipped  int    `json:"pre_skipped,omitempty"`
+	PostSkipped int    `json:"post_skipped,omitempty"`
+	Suffixed    int    `json:"suffixed,omitempty"`
+	NoDate      int    `json:"nodate,omitempty"`
+	Filtered    int    `json:"filtered,omitempty"`
+	Errors      int    `json:"errors,omitempty"`
+	BytesPulled int64  `json:"bytes_pulled,omitempty"`
+}
+
 // Options drives a single Run() invocation. Most fields map 1:1 to the
 // CLI flags defined in cmd/dumpsock; see CLAUDE.md "CLI surface".
 type Options struct {
@@ -53,6 +73,18 @@ type Options struct {
 	// also goes to Out.
 	Out io.Writer
 	Err io.Writer
+
+	// OnProgress, when non-nil, is invoked at the same moments as the
+	// human-readable progress lines. Used by the GUI (and any JSON
+	// consumer) to surface structured progress. Called from arbitrary
+	// goroutines — must be concurrency-safe.
+	OnProgress func(ProgressEvent)
+}
+
+func (o *Options) emit(ev ProgressEvent) {
+	if o.OnProgress != nil {
+		o.OnProgress(ev)
+	}
 }
 
 // Result summarizes one Run().
@@ -106,6 +138,7 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 		return Result{}, fmt.Errorf("mkdir output: %w", err)
 	}
 
+	opts.emit(ProgressEvent{Phase: "indexing", Message: opts.OutputRoot})
 	fmt.Fprintf(opts.Out, "indexing existing files under %s\n", opts.OutputRoot)
 	ix, err := dedup.NewIndex(opts.OutputRoot)
 	if err != nil {
@@ -113,6 +146,7 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	}
 	fmt.Fprintf(opts.Out, "indexed %d existing files\n", ix.Count())
 
+	opts.emit(ProgressEvent{Phase: "walking", Message: opts.RemoteRoot})
 	fmt.Fprintf(opts.Out, "walking remote %s/ ...\n", opts.RemoteRoot)
 	files, err := cl.Walk(opts.RemoteRoot, MediaExts)
 	if err != nil {
@@ -144,6 +178,11 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 		jobs = append(jobs, job{remote: f})
 	}
 	fmt.Fprintf(opts.Out, "to pull: %d (pre-skipped: %d)\n", len(jobs), res.PreSkipped)
+	opts.emit(ProgressEvent{
+		Phase:      "planning",
+		Total:      len(jobs),
+		PreSkipped: res.PreSkipped,
+	})
 
 	if opts.DryRun {
 		for _, j := range jobs {
@@ -269,6 +308,22 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 			mu.Unlock()
 
 			n := atomic.AddInt32(&processed, 1)
+			mu.Lock()
+			snap := ProgressEvent{
+				Phase:       "pulling",
+				Done:        int(n),
+				Total:       len(jobs),
+				Current:     p.remote.Name,
+				Pulled:      res.Pulled,
+				PreSkipped:  res.PreSkipped,
+				PostSkipped: res.PostSkipped,
+				Suffixed:    res.Suffixed,
+				NoDate:      res.NoDate,
+				Filtered:    res.Filtered,
+				Errors:      res.Errors,
+			}
+			mu.Unlock()
+			opts.emit(snap)
 			if int(n)%25 == 0 || int(n) == len(jobs) {
 				rate := float64(n) / time.Since(t0).Seconds()
 				fmt.Fprintf(opts.Out, "  %d/%d  pulled=%d skipped=%d suffixed=%d nodate=%d errors=%d  (%.1f files/s)\n",
@@ -290,6 +345,19 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 		body := fmt.Sprintf("%d pulled, %d skipped, %d errors", res.Pulled, res.PreSkipped+res.PostSkipped, res.Errors)
 		notify.Send("DumpSock — backup complete", body)
 	}
+
+	opts.emit(ProgressEvent{
+		Phase:       "done",
+		Done:        res.Pulled + res.PostSkipped + res.NoDate + res.Errors + res.Filtered,
+		Total:       len(jobs),
+		Pulled:      res.Pulled,
+		PreSkipped:  res.PreSkipped,
+		PostSkipped: res.PostSkipped,
+		Suffixed:    res.Suffixed,
+		NoDate:      res.NoDate,
+		Filtered:    res.Filtered,
+		Errors:      res.Errors,
+	})
 
 	return res, nil
 }
