@@ -96,10 +96,14 @@ identical to icloudpd's: YYYY-MM-DD/ subfolders by capture date, with a
 				if err != nil {
 					return err
 				}
+				del := ""
+				if o.deleteAfter && o.confirmDel {
+					del = fmt.Sprintf(" deleted=%d delete_errors=%d", res.Deleted, res.DeleteErrors)
+				}
 				fmt.Fprintf(stdout,
-					"done: total=%d pre_skipped=%d pulled=%d post_skipped=%d suffixed=%d nodate=%d filtered=%d errors=%d (%s)\n",
+					"done: total=%d pre_skipped=%d pulled=%d post_skipped=%d suffixed=%d nodate=%d filtered=%d errors=%d%s (%s)\n",
 					res.Total, res.PreSkipped, res.Pulled, res.PostSkipped,
-					res.Suffixed, res.NoDate, res.Filtered, res.Errors,
+					res.Suffixed, res.NoDate, res.Filtered, res.Errors, del,
 					res.Elapsed.Round(time.Second))
 				return nil
 			}

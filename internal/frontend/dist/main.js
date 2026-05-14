@@ -76,7 +76,8 @@
     }
   }
 
-  function readPullForm() {
+  function readPullForm(deleteConfirmed) {
+    const wantsDelete = $("#delete-after").checked;
     return {
       udid: (state.device && state.device.udid) || "",
       output_root: state.outputDir,
@@ -87,8 +88,11 @@
       no_mtime: $("#no-mtime").checked,
       no_notify: $("#no-notify").checked,
       dry_run: $("#dry-run").checked,
-      delete_after: false,
-      confirm_delete: false,
+      // delete_after is enabled only after the user clicked through
+      // the danger modal. The Go layer rejects delete_after without
+      // confirm_delete; UI sets them together.
+      delete_after: wantsDelete && !!deleteConfirmed,
+      confirm_delete: wantsDelete && !!deleteConfirmed,
     };
   }
 
@@ -106,11 +110,21 @@
   }
 
   async function startPull() {
-    const req = readPullForm();
-    if (!req.output_root) {
+    const wantsDelete = $("#delete-after").checked;
+    if (!state.outputDir) {
       toast("Pick an output folder first.");
       return;
     }
+    if (wantsDelete) {
+      // Defer the actual launch until the user confirms in the modal.
+      $("#delete-confirm").hidden = false;
+      return;
+    }
+    await launchBackup(false);
+  }
+
+  async function launchBackup(deleteConfirmed) {
+    const req = readPullForm(deleteConfirmed);
     resetProgressUI();
     show("pulling");
     try {
@@ -137,6 +151,7 @@
       case "walking":  return "Walking the device…";
       case "planning": return "Planning…";
       case "pulling":  return "Pulling files";
+      case "deleting": return "Deleting from device…";
       case "done":     return "Done";
       case "error":    return "Error";
       default:         return ev.phase;
@@ -180,6 +195,8 @@
       if (r.Suffixed) parts.push(r.Suffixed + " suffixed");
       if (r.NoDate) parts.push(r.NoDate + " without a date");
       if (r.Filtered) parts.push(r.Filtered + " filtered");
+      if (r.Deleted) parts.push(r.Deleted + " deleted from device");
+      if (r.DeleteErrors) parts.push(r.DeleteErrors + " delete errors");
       if (r.Errors) parts.push(r.Errors + " errors");
       $("#done-summary").textContent = parts.join(" · ");
     }
@@ -196,6 +213,15 @@
       window.go.gui.App.RevealInFinder(state.outputDir);
     });
     $("#btn-again").addEventListener("click", () => show("config"));
+
+    // Delete-confirmation modal
+    $("#btn-cancel-delete").addEventListener("click", () => {
+      $("#delete-confirm").hidden = true;
+    });
+    $("#btn-confirm-delete").addEventListener("click", async () => {
+      $("#delete-confirm").hidden = true;
+      await launchBackup(true);
+    });
   }
 
   function bindRuntime() {

@@ -101,6 +101,12 @@ func (c *Client) PullTo(remotePath, localPath string) error {
 	return c.inner.PullSingleFile(remotePath, localPath)
 }
 
+// Remove deletes a single regular file on the device. Use only after the
+// local copy has been verified — there is no recycle bin on iOS.
+func (c *Client) Remove(remotePath string) error {
+	return c.inner.Remove(remotePath)
+}
+
 // pickDevice resolves a UDID to an ios.DeviceEntry. With udid=="", pick the
 // single USB-connected device; with multiple connected, return an error
 // asking the caller to disambiguate.

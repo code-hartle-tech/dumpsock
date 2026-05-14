@@ -35,21 +35,23 @@ const noDateFolder = "0000:00:00 00:00:00"
 // ProgressEvent is emitted at the same moments as the CLI's progress
 // lines, so a GUI or a JSON consumer can subscribe to structured updates
 // instead of parsing text. Phase is one of: "indexing", "walking",
-// "planning", "pulling", "done", "error".
+// "planning", "pulling", "deleting", "done", "error".
 type ProgressEvent struct {
-	Phase       string `json:"phase"`
-	Message     string `json:"message,omitempty"`
-	Done        int    `json:"done,omitempty"`
-	Total       int    `json:"total,omitempty"`
-	Current     string `json:"current,omitempty"`
-	Pulled      int    `json:"pulled,omitempty"`
-	PreSkipped  int    `json:"pre_skipped,omitempty"`
-	PostSkipped int    `json:"post_skipped,omitempty"`
-	Suffixed    int    `json:"suffixed,omitempty"`
-	NoDate      int    `json:"nodate,omitempty"`
-	Filtered    int    `json:"filtered,omitempty"`
-	Errors      int    `json:"errors,omitempty"`
-	BytesPulled int64  `json:"bytes_pulled,omitempty"`
+	Phase        string `json:"phase"`
+	Message      string `json:"message,omitempty"`
+	Done         int    `json:"done,omitempty"`
+	Total        int    `json:"total,omitempty"`
+	Current      string `json:"current,omitempty"`
+	Pulled       int    `json:"pulled,omitempty"`
+	PreSkipped   int    `json:"pre_skipped,omitempty"`
+	PostSkipped  int    `json:"post_skipped,omitempty"`
+	Suffixed     int    `json:"suffixed,omitempty"`
+	NoDate       int    `json:"nodate,omitempty"`
+	Filtered     int    `json:"filtered,omitempty"`
+	Errors       int    `json:"errors,omitempty"`
+	Deleted      int    `json:"deleted,omitempty"`
+	DeleteErrors int    `json:"delete_errors,omitempty"`
+	BytesPulled  int64  `json:"bytes_pulled,omitempty"`
 }
 
 // Options drives a single Run() invocation. Most fields map 1:1 to the
@@ -97,6 +99,8 @@ type Result struct {
 	NoDate         int // landed in 0000:00:00 00:00:00/
 	Filtered       int // dropped by --since / --until
 	Errors         int
+	Deleted        int // remote files removed from device after verified copy
+	DeleteErrors   int // remote files we tried to delete but couldn't
 	UntilFoundStop bool // true if we early-exited via --until-found N
 	Elapsed        time.Duration
 }
@@ -160,10 +164,18 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 		remote afc.File
 	}
 	jobs := make([]job, 0, len(files))
+	// pendingDeletes collects remote paths whose content is verified at
+	// destination — only safe to delete from the device when --delete-after
+	// is set AND --confirm-delete is set. The CLI/GUI hard-gate that.
+	var pendingDeletes []string
+	deletionsEnabled := opts.DeleteAfter && !opts.DryRun
 	consecutiveMatches := 0
 	for _, f := range files {
 		if ix.Has(f.Name, f.Size) {
 			res.PreSkipped++
+			if deletionsEnabled {
+				pendingDeletes = append(pendingDeletes, f.Path)
+			}
 			if opts.UntilFound > 0 {
 				consecutiveMatches++
 				if consecutiveMatches >= opts.UntilFound {
@@ -277,6 +289,12 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 			if skip {
 				mu.Lock()
 				res.PostSkipped++
+				// (name, size) match exists at destination — same content
+				// as the remote file, verified at index time. Safe to
+				// queue for device-side delete.
+				if deletionsEnabled {
+					pendingDeletes = append(pendingDeletes, p.remote.Path)
+				}
 				mu.Unlock()
 				_ = os.Remove(p.stagedAt)
 				return
@@ -295,6 +313,21 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 				_ = os.Remove(p.stagedAt)
 			}
 
+			// Size verification before queueing for device-side delete:
+			// if the local file's byte size doesn't match the remote
+			// stat, something is wrong — never queue that path for
+			// deletion (data-loss avoidance).
+			localInfo, statErr := os.Stat(target)
+			localOK := statErr == nil && localInfo.Size() == p.remote.Size
+			if !localOK {
+				mu.Lock()
+				res.Errors++
+				mu.Unlock()
+				fmt.Fprintf(opts.Err, "  ERROR size mismatch after move %s: local=%d remote=%d (will NOT delete from device)\n",
+					target, localInfo.Size(), p.remote.Size)
+				return
+			}
+
 			if opts.SetMtime && hasDate {
 				_ = os.Chtimes(target, date, date)
 			}
@@ -305,6 +338,9 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 			}
 			res.Pulled++
 			ix.Add(filepath.Base(target), p.remote.Size)
+			if deletionsEnabled {
+				pendingDeletes = append(pendingDeletes, p.remote.Path)
+			}
 			mu.Unlock()
 
 			n := atomic.AddInt32(&processed, 1)
@@ -337,8 +373,11 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 		return res, pullErr
 	}
 
-	if opts.DeleteAfter {
-		fmt.Fprintln(opts.Err, "  --delete-after: device-side delete is not wired in v0; skipping")
+	if deletionsEnabled {
+		runDeletions(ctx, cl, &opts, pendingDeletes, &res)
+	} else if opts.DeleteAfter && opts.DryRun {
+		fmt.Fprintf(opts.Out, "  --delete-after: would remove %d files from device (dry-run; nothing deleted)\n",
+			len(pendingDeletes))
 	}
 
 	if opts.Notify {
@@ -347,19 +386,60 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	}
 
 	opts.emit(ProgressEvent{
-		Phase:       "done",
-		Done:        res.Pulled + res.PostSkipped + res.NoDate + res.Errors + res.Filtered,
-		Total:       len(jobs),
-		Pulled:      res.Pulled,
-		PreSkipped:  res.PreSkipped,
-		PostSkipped: res.PostSkipped,
-		Suffixed:    res.Suffixed,
-		NoDate:      res.NoDate,
-		Filtered:    res.Filtered,
-		Errors:      res.Errors,
+		Phase:        "done",
+		Done:         res.Pulled + res.PostSkipped + res.NoDate + res.Errors + res.Filtered,
+		Total:        len(jobs),
+		Pulled:       res.Pulled,
+		PreSkipped:   res.PreSkipped,
+		PostSkipped:  res.PostSkipped,
+		Suffixed:     res.Suffixed,
+		NoDate:       res.NoDate,
+		Filtered:     res.Filtered,
+		Errors:       res.Errors,
+		Deleted:      res.Deleted,
+		DeleteErrors: res.DeleteErrors,
 	})
 
 	return res, nil
+}
+
+// runDeletions iterates pendingDeletes and removes each remote file via
+// AFC. Emits "deleting" progress events. Increments res.Deleted /
+// res.DeleteErrors. Honors ctx cancellation between files.
+func runDeletions(ctx context.Context, cl *afc.Client, opts *Options, paths []string, res *Result) {
+	if len(paths) == 0 {
+		fmt.Fprintln(opts.Out, "  --delete-after: nothing verified at destination — no device-side deletions")
+		return
+	}
+	fmt.Fprintf(opts.Out, "  --delete-after: removing %d verified files from device…\n", len(paths))
+	opts.emit(ProgressEvent{Phase: "deleting", Total: len(paths)})
+
+	for i, rpath := range paths {
+		if ctx.Err() != nil {
+			fmt.Fprintf(opts.Err, "  --delete-after: cancelled at %d/%d\n", i, len(paths))
+			break
+		}
+		if err := cl.Remove(rpath); err != nil {
+			res.DeleteErrors++
+			fmt.Fprintf(opts.Err, "  --delete-after: could not remove %s: %v\n", rpath, err)
+		} else {
+			res.Deleted++
+		}
+		if (i+1)%25 == 0 || i+1 == len(paths) {
+			opts.emit(ProgressEvent{
+				Phase:        "deleting",
+				Done:         i + 1,
+				Total:        len(paths),
+				Current:      rpath,
+				PreSkipped:   res.PreSkipped,
+				PostSkipped:  res.PostSkipped,
+				Pulled:       res.Pulled,
+				Errors:       res.Errors,
+			})
+			fmt.Fprintf(opts.Out, "  --delete-after: %d/%d  deleted=%d errors=%d\n",
+				i+1, len(paths), res.Deleted, res.DeleteErrors)
+		}
+	}
 }
 
 func shouldFilter(date, since, until time.Time) bool {
