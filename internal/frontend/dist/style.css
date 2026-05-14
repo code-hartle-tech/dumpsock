@@ -71,7 +71,11 @@ main {
   overflow-y: auto;
 }
 
-.panel { display: contents; }
+/* Panels default to hidden; the body[data-screen=...] rules at the
+   bottom of this file show exactly one. Previously `display: contents`,
+   which made the <section hidden> attribute ineffective — every panel
+   rendered at once. */
+.panel { display: none; }
 
 .hero {
   text-align: center;

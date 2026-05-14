@@ -41,8 +41,13 @@ func (r *Reader) SetBin(path string) { r.bin = path }
 //
 // The context is honored — long-running exiftool calls can be cancelled.
 func (r *Reader) Date(ctx context.Context, path string) (time.Time, bool, error) {
+	// Do NOT use -fast2: it skips parsing MOV/MP4 `moov` atoms, where
+	// iPhone videos store their CreateDate / MediaCreateDate. Without
+	// those, every video falls back to FileModifyDate (= the time we
+	// wrote it to local disk = today) and lands in today's folder.
+	// -fast (singular) is safe — it only skips MakerNotes.
 	cmd := exec.CommandContext(ctx, r.bin,
-		"-s3", "-fast2",
+		"-s3", "-fast",
 		"-d", "%Y-%m-%dT%H:%M:%S",
 		"-FileModifyDate",
 		"-MediaCreateDate",
