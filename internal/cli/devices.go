@@ -10,11 +10,11 @@ import (
 )
 
 type deviceRow struct {
-	UDID            string `json:"udid"`
-	Name            string `json:"name"`
-	ProductType     string `json:"product_type"`
-	ProductVersion  string `json:"product_version"`
-	ConnectionType  string `json:"connection_type"`
+	UDID           string `json:"udid"`
+	Name           string `json:"name"`
+	ProductType    string `json:"product_type"`
+	ProductVersion string `json:"product_version"`
+	ConnectionType string `json:"connection_type"`
 }
 
 func newDevicesCmd(stdout, stderr io.Writer) *cobra.Command {

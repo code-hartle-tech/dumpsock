@@ -24,14 +24,14 @@ type pullOpts struct {
 	dryRun      bool
 
 	// advanced
-	parallel    int
-	untilFound  int
-	noMtime     bool
-	noLivePair  bool
-	noNotify    bool
-	hashMode    string
-	remoteRoot  string
-	jsonStream  bool
+	parallel   int
+	untilFound int
+	noMtime    bool
+	noLivePair bool
+	noNotify   bool
+	hashMode   string
+	remoteRoot string
+	jsonStream bool
 }
 
 func newPullCmd(stdout, stderr io.Writer) *cobra.Command {
