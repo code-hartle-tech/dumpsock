@@ -10,7 +10,9 @@
 
 **Phase 0 — scaffold:** ✅ complete (commit `5bc2647`).
 
-**Phase 1 — Go CLI feature parity + icloudpd extras:** ✅ complete on `feature/cli-skeleton`.
+**Phase 1 — Go CLI feature parity + icloudpd extras:** ✅ merged into `develop`.
+
+**Phase 2 — Wails desktop GUI:** ✅ complete on `feature/gui-wails`. `dist/DumpSock.app` is a 9.3 MB drag-droppable bundle on macOS, charcoal HARTLE.TECH theme, shares the same `internal/backup` engine via an OnProgress callback that forwards to `runtime.EventsEmit("backup:progress")`. `scripts/build-gui.sh` produces it; needs `CGO_LDFLAGS="-framework UniformTypeIdentifiers"` and `-tags desktop,production` on macOS Tahoe.
 
 | Command | Status | Notes |
 |---|---|---|
