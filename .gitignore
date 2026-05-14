@@ -1,0 +1,39 @@
+# Build outputs
+/dist/
+/bin/
+*.exe
+*.app/
+*.dmg
+*.msi
+*.AppImage
+
+# Go
+*.test
+*.out
+/coverage/
+/vendor/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Per-project Claude state (matches neartrace-android-mvp convention)
+.claude/
+
+# Secrets — should never appear; gitignore as belt-and-suspenders
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.provisionprofile
+
+# Icon build intermediates
+/assets/icon/build/
+/assets/icon/*.icns
+/assets/icon/*.ico
+/assets/icon/*.png
+!/assets/icon/preview.png
