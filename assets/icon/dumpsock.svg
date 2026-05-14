@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="DumpSock — a HARTLE.TECH tool">
+  <title>DumpSock</title>
+  <desc>White tube sock with two red stripes at the cuff and a single drip — v0 placeholder by HARTLE.TECH. Final artwork: designer commission per CLAUDE.md.</desc>
+
+  <!-- Squircle background. macOS applies its own mask atop this in .icns;
+       Linux/Windows display the squircle directly. Color matches the
+       HARTLE.TECH NearTrace docs charcoal (#0d0d0d). -->
+  <rect width="1024" height="1024" rx="220" ry="220" fill="#0D0D0D"/>
+
+  <!-- Soft glow behind the sock so it reads at small sizes -->
+  <defs>
+    <radialGradient id="halo" cx="50%" cy="55%" r="50%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sockShade" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#EAEAEA"/>
+    </linearGradient>
+    <linearGradient id="dropShade" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#9FE5C2"/>
+      <stop offset="100%" stop-color="#5DD39E"/>
+    </linearGradient>
+  </defs>
+  <circle cx="512" cy="560" r="380" fill="url(#halo)"/>
+
+  <!-- The sock: side-on view, foot pointing right.
+       Two rounded rectangles joined by a heel curve, drawn as a single
+       path so the outline is continuous. -->
+  <g>
+    <path d="
+      M 320 150
+      L 520 150
+      Q 560 150 560 190
+      L 560 600
+      L 860 600
+      Q 900 600 900 640
+      L 900 830
+      Q 900 870 860 870
+      L 320 870
+      Q 280 870 280 830
+      L 280 190
+      Q 280 150 320 150
+      Z
+    " fill="url(#sockShade)" stroke="#C8C8C8" stroke-width="5" stroke-linejoin="round"/>
+
+    <!-- Two red stripes near the cuff (calf level) -->
+    <rect x="280" y="240" width="280" height="42" fill="#E53935"/>
+    <rect x="280" y="310" width="280" height="42" fill="#E53935"/>
+
+    <!-- Single drip falling from the toe.
+         Classic teardrop: round bottom, tapered point at top. -->
+    <path d="
+      M 830 905
+      Q 808 935 808 958
+      Q 808 982 830 982
+      Q 852 982 852 958
+      Q 852 935 830 905
+      Z
+    " fill="url(#dropShade)"/>
+  </g>
+</svg>
