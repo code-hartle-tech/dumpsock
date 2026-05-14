@@ -351,6 +351,10 @@ details.log pre {
   z-index: 200;
   backdrop-filter: blur(4px);
 }
+/* Restore the HTML `hidden` attribute — `display: flex` on .modal-veil
+   otherwise wins. Same lesson as `.panel { display: contents }` from the
+   earlier fix; see memory feedback_html_hidden_attribute_vs_css_display. */
+.modal-veil[hidden] { display: none; }
 .modal {
   background: var(--bg-elev);
   border: 1px solid var(--line);
