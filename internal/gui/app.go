@@ -21,6 +21,7 @@ import (
 	"github.com/code-hartle-tech/dumpsock/internal/afc"
 	"github.com/code-hartle-tech/dumpsock/internal/backup"
 	"github.com/code-hartle-tech/dumpsock/internal/branding"
+	"github.com/code-hartle-tech/dumpsock/internal/compare"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -293,6 +294,44 @@ func (a *App) CancelBackup() {
 	if job != nil {
 		job.cancel()
 	}
+}
+
+// RunCompare powers the Compare & Merge tab. Walks the device's DCIM via
+// AFC and the destination folder tree, categorizes by media type, and
+// returns the per-side breakdown plus delta counts.
+//
+// Safe to call concurrently with a backup — it opens its own AFC client
+// since the backup engine holds its own client and AFC sessions are
+// cheap enough that double-opening is fine for a comparison run.
+//
+// Emits "compare:progress" events with phase strings (walking_device,
+// walking_backup, categorizing, diffing, done) so the UI can show what
+// the comparison is doing on a big device.
+func (a *App) RunCompare(udid, outputRoot string) (compare.Result, error) {
+	if outputRoot == "" {
+		return compare.Result{}, errors.New("no destination folder set yet")
+	}
+	cl, err := afc.Open(udid)
+	if err != nil {
+		return compare.Result{}, err
+	}
+	defer func() { _ = cl.Close() }()
+
+	ctx := a.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	res, err := compare.Compute(ctx, compare.Options{
+		Conn:      cl,
+		LocalRoot: outputRoot,
+		OnProgress: func(p compare.Progress) {
+			wruntime.EventsEmit(a.ctx, "compare:progress", p)
+		},
+	})
+	if err != nil {
+		return compare.Result{}, err
+	}
+	return res, nil
 }
 
 // RevealInFinder opens the destination folder in the platform's native

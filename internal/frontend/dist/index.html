@@ -237,62 +237,64 @@
           </div>
 
           <div class="compare-filters">
-            <button class="filter-pill active" data-filter="all">All <span class="count">(1,242)</span></button>
-            <button class="filter-pill" data-filter="device">New in Device <span class="count">(324)</span></button>
-            <button class="filter-pill" data-filter="backup">New in Backup <span class="count">(187)</span></button>
-            <button class="filter-pill" data-filter="different">Different <span class="count">(56)</span></button>
+            <button class="filter-pill active" data-filter="all">All <span class="count" id="cmp-count-all">(—)</span></button>
+            <button class="filter-pill" data-filter="device">New in Device <span class="count" id="cmp-count-device">(—)</span></button>
+            <button class="filter-pill" data-filter="backup">New in Backup <span class="count" id="cmp-count-backup">(—)</span></button>
+            <button class="filter-pill" data-filter="different">Different <span class="count" id="cmp-count-diff">(—)</span></button>
+            <button class="filter-pill" data-filter="run" id="btn-compare-run" style="margin-left:auto;background:var(--brand-primary,#E74C3C);color:#fff;">Run Compare</button>
+            <span id="compare-status" class="compare-status-text" hidden></span>
           </div>
 
           <div class="compare-grid">
             <div class="compare-column">
               <div class="compare-col-head">From Device</div>
-              <div class="compare-col-meta" id="compare-device-meta">625 items · 96.3 GB</div>
+              <div class="compare-col-meta" id="compare-device-meta">— items · — </div>
               <div class="compare-list">
-                <div class="compare-row">
+                <div class="compare-row" data-cmp-side="device" data-cmp-cat="photos">
                   <div class="compare-tile photos">📷</div>
                   <div class="compare-meta">
                     <div class="compare-name">Photos</div>
-                    <div class="compare-detail">312 items · 48.6 GB</div>
+                    <div class="compare-detail">—</div>
                   </div>
                   <span class="compare-chev">›</span>
                 </div>
-                <div class="compare-row">
+                <div class="compare-row" data-cmp-side="device" data-cmp-cat="videos">
                   <div class="compare-tile videos">🎬</div>
                   <div class="compare-meta">
                     <div class="compare-name">Videos</div>
-                    <div class="compare-detail">128 items · 33.2 GB</div>
+                    <div class="compare-detail">—</div>
                   </div>
                   <span class="compare-chev">›</span>
                 </div>
-                <div class="compare-row">
+                <div class="compare-row" data-cmp-side="device" data-cmp-cat="live_photos">
                   <div class="compare-tile live">⊙</div>
                   <div class="compare-meta">
                     <div class="compare-name">Live Photos</div>
-                    <div class="compare-detail">45 items · 6.1 GB</div>
+                    <div class="compare-detail">—</div>
                   </div>
                   <span class="compare-chev">›</span>
                 </div>
-                <div class="compare-row">
+                <div class="compare-row" data-cmp-side="device" data-cmp-cat="screenshots">
                   <div class="compare-tile screenshots">▢</div>
                   <div class="compare-meta">
                     <div class="compare-name">Screenshots</div>
-                    <div class="compare-detail">80 items · 1.3 GB</div>
+                    <div class="compare-detail">—</div>
                   </div>
                   <span class="compare-chev">›</span>
                 </div>
-                <div class="compare-row">
+                <div class="compare-row" data-cmp-side="device" data-cmp-cat="documents">
                   <div class="compare-tile documents">📄</div>
                   <div class="compare-meta">
                     <div class="compare-name">Documents</div>
-                    <div class="compare-detail">36 items · 1.1 GB</div>
+                    <div class="compare-detail">—</div>
                   </div>
                   <span class="compare-chev">›</span>
                 </div>
-                <div class="compare-row">
+                <div class="compare-row" data-cmp-side="device" data-cmp-cat="other">
                   <div class="compare-tile other">⋯</div>
                   <div class="compare-meta">
                     <div class="compare-name">Other</div>
-                    <div class="compare-detail">24 items · 6.0 GB</div>
+                    <div class="compare-detail">—</div>
                   </div>
                   <span class="compare-chev">›</span>
                 </div>
@@ -307,53 +309,53 @@
 
             <div class="compare-column">
               <div class="compare-col-head">From Backup</div>
-              <div class="compare-col-meta" id="compare-backup-meta">617 items · 93.9 GB</div>
+              <div class="compare-col-meta" id="compare-backup-meta">— items · — </div>
               <div class="compare-list">
-                <div class="compare-row">
+                <div class="compare-row" data-cmp-side="backup" data-cmp-cat="photos">
                   <div class="compare-tile photos">📷</div>
                   <div class="compare-meta">
                     <div class="compare-name">Photos</div>
-                    <div class="compare-detail">298 items · 45.1 GB</div>
+                    <div class="compare-detail">—</div>
                   </div>
                   <span class="compare-chev">›</span>
                 </div>
-                <div class="compare-row">
+                <div class="compare-row" data-cmp-side="backup" data-cmp-cat="videos">
                   <div class="compare-tile videos">🎬</div>
                   <div class="compare-meta">
                     <div class="compare-name">Videos</div>
-                    <div class="compare-detail">131 items · 34.3 GB</div>
+                    <div class="compare-detail">—</div>
                   </div>
                   <span class="compare-chev">›</span>
                 </div>
-                <div class="compare-row">
+                <div class="compare-row" data-cmp-side="backup" data-cmp-cat="live_photos">
                   <div class="compare-tile live">⊙</div>
                   <div class="compare-meta">
                     <div class="compare-name">Live Photos</div>
-                    <div class="compare-detail">46 items · 6.0 GB</div>
+                    <div class="compare-detail">—</div>
                   </div>
                   <span class="compare-chev">›</span>
                 </div>
-                <div class="compare-row">
+                <div class="compare-row" data-cmp-side="backup" data-cmp-cat="screenshots">
                   <div class="compare-tile screenshots">▢</div>
                   <div class="compare-meta">
                     <div class="compare-name">Screenshots</div>
-                    <div class="compare-detail">77 items · 1.2 GB</div>
+                    <div class="compare-detail">—</div>
                   </div>
                   <span class="compare-chev">›</span>
                 </div>
-                <div class="compare-row">
+                <div class="compare-row" data-cmp-side="backup" data-cmp-cat="documents">
                   <div class="compare-tile documents">📄</div>
                   <div class="compare-meta">
                     <div class="compare-name">Documents</div>
-                    <div class="compare-detail">38 items · 1.2 GB</div>
+                    <div class="compare-detail">—</div>
                   </div>
                   <span class="compare-chev">›</span>
                 </div>
-                <div class="compare-row">
+                <div class="compare-row" data-cmp-side="backup" data-cmp-cat="other">
                   <div class="compare-tile other">⋯</div>
                   <div class="compare-meta">
                     <div class="compare-name">Other</div>
-                    <div class="compare-detail">29 items · 5.9 GB</div>
+                    <div class="compare-detail">—</div>
                   </div>
                   <span class="compare-chev">›</span>
                 </div>
@@ -363,32 +365,31 @@
 
           <div class="compare-stats">
             <div class="compare-stat">
-              <div class="compare-stat-value">324</div>
+              <div class="compare-stat-value" id="cmp-stat-new-device">—</div>
               <div class="compare-stat-label">New in Device</div>
             </div>
             <div class="compare-stat">
-              <div class="compare-stat-value">187</div>
+              <div class="compare-stat-value" id="cmp-stat-new-backup">—</div>
               <div class="compare-stat-label">New in Backup</div>
             </div>
             <div class="compare-stat">
-              <div class="compare-stat-value">56</div>
+              <div class="compare-stat-value" id="cmp-stat-diff">—</div>
               <div class="compare-stat-label">Different</div>
             </div>
             <div class="compare-stat">
-              <div class="compare-stat-value">1.2 GB</div>
-              <div class="compare-stat-label">Selected</div>
+              <div class="compare-stat-value" id="cmp-stat-elapsed">—</div>
+              <div class="compare-stat-label">Compare time</div>
             </div>
-            <button class="btn primary">
+            <button class="btn primary" id="btn-compare-pull-missing" title="Run a normal backup; pre-skipped + new files all go in one pass.">
               <span class="btn-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
               </span>
-              Merge Selected
+              Pull missing into backup
             </button>
           </div>
 
-          <p class="muted small" style="margin-top:18px;text-align:center;">
-            Compare &amp; Merge is a UI shell at this stage. Live diff against
-            destination ships at <a href="https://github.com/code-hartle-tech/dumpsock/issues/2" target="_blank">issue #2</a>.
+          <p class="muted small" style="margin-top:18px;text-align:center;" id="compare-footnote">
+            Hit <strong>Run Compare</strong> to walk the device + backup. Big libraries take a few seconds.
           </p>
         </section>
 
