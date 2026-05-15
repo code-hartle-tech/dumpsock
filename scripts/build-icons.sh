@@ -1,30 +1,39 @@
 #!/usr/bin/env bash
-# Render assets/icon/dumpsock.svg to all platform icon formats.
-#   - .icns for macOS (assembled via iconutil from an .iconset/ dir)
-#   - .ico  for Windows (multi-resolution via icotool)
-#   - .png  set for Linux + web favicons
+# Generate platform icon sets from the approved DumpSock mascot PNG.
 #
-# Tooling: rsvg-convert (brew install librsvg) + icotool
-#          (brew install icoutils). iconutil ships with macOS.
+# v2 (2026-05-15+): the source of truth is assets/brand/dumpsock_mascot_primary.png
+# — provided by the operator as the approved design. We no longer use the
+# hand-authored SVG (it's retained at assets/icon/dumpsock.svg for git
+# history but never re-rendered).
+#
+# Outputs:
+#   .icns for macOS    (assembled via iconutil from an .iconset/ dir)
+#   .ico  for Windows  (multi-resolution via icotool)
+#   .png  set          (Linux desktop entries, web favicons, embedded UI)
+#
+# Tooling: sips (built into macOS) + iconutil (macOS) + icotool
+#          (brew install icoutils).
 #
 # Usage: bash scripts/build-icons.sh
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SVG="$ROOT/assets/icon/dumpsock.svg"
+SRC="$ROOT/assets/brand/dumpsock_mascot_primary.png"
 OUT="$ROOT/assets/icon/build"
 ICONSET="$OUT/dumpsock.iconset"
 
-if [[ ! -f "$SVG" ]]; then
-    echo "build-icons: missing source SVG at $SVG" >&2
+if [[ ! -f "$SRC" ]]; then
+    echo "build-icons: missing source PNG at $SRC" >&2
     exit 1
 fi
-for bin in rsvg-convert icotool; do
+for bin in sips icotool; do
     if ! command -v "$bin" >/dev/null 2>&1; then
         echo "build-icons: missing dependency '$bin'" >&2
-        echo "  rsvg-convert: brew install librsvg" >&2
-        echo "  icotool:      brew install icoutils" >&2
+        case "$bin" in
+            sips)    echo "  sips ships with macOS — are you on Linux?" >&2 ;;
+            icotool) echo "  icotool: brew install icoutils" >&2 ;;
+        esac
         exit 1
     fi
 done
@@ -35,10 +44,10 @@ rm -f "$OUT"/*.png "$OUT"/*.ico "$OUT"/*.icns "$ICONSET"/*.png
 render() {
     local size="$1"
     local outfile="$2"
-    rsvg-convert -w "$size" -h "$size" "$SVG" -o "$outfile"
+    sips -s format png -z "$size" "$size" "$SRC" --out "$outfile" >/dev/null
 }
 
-# 1) Generic PNG set (Linux desktop entries, web favicons, etc.)
+# 1) Generic PNG set
 for size in 16 24 32 48 64 128 256 512 1024; do
     render "$size" "$OUT/dumpsock-${size}.png"
 done
@@ -83,3 +92,7 @@ echo "  → $OUT/dumpsock.ico"
 echo
 echo "Done. Build outputs:"
 ls -la "$OUT" | grep -v '^total' | awk '{printf "  %s  %s\n", $5, $NF}' | sort -n
+
+# 4) Refresh the 256px preview used as a fallback in the readme/repo
+cp "$OUT/dumpsock-256.png" "$ROOT/assets/icon/preview.png"
+echo "  → assets/icon/preview.png (256px preview refreshed)"

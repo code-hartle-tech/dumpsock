@@ -1,8 +1,8 @@
 # DumpSock
 
-> Plug your phone in. Wring it dry.
+> Cloudless freedom for your iPhone.
 
-DumpSock is a local, offline iPhone media-dump tool. One executable. No iCloud, no API keys, no 2FA dance. Connect, run, get a tidy date-sorted folder of photos and videos on disk.
+DumpSock is a playful, local-first tool that helps people free space on iPhone and iPad by backing up media and files the good old way: **locally, privately, no cloud**.
 
 ```
 dumpsock pull
@@ -12,29 +12,36 @@ That's the whole common case.
 
 ---
 
+## What it does
+
+- Plug your iPhone in over USB.
+- DumpSock walks `DCIM/`, pulls every photo and video to your Mac (or to any folder you point it at — including an external SSD).
+- Files land in date-sorted `YYYY-MM-DD/` folders so you can find them later.
+- Optional `--delete-after` removes each file from the iPhone once it's safely on disk. Storage freed immediately.
+
+No iCloud. No account. No telemetry. No phone-home. The bytes go from your phone to your disk and nowhere else.
+
 ## Status
 
-**Phase 0 — scaffold.** Project bootstrapped. CLI not yet building. Subscribe to releases for the first usable cut.
-
-## Why
-
-`icloudpd` is excellent for cloud-side backups. It does not exist for the local-USB path. DumpSock fills that slot: same date-folder output layout, but the bytes come over the USB cable, not the iCloud API.
+**Phase 2 — desktop GUI shipped, v2 brand applied.** macOS `.app` bundle works end-to-end against real iPhones on iOS 26. Linux + Windows CLI binaries build; native GUIs for those platforms are in flight.
 
 ## Roadmap
 
 | Phase | Lands |
 |---|---|
-| 0 | Project scaffold |
-| 1 | Go CLI: pull / devices / dry-run / set-mtime / parallel / live-pair / since-until / watch-mode |
-| 2 | Native GUI (macOS / Windows / Linux), single-file `.app` / `.exe` / `.AppImage` |
-| 3 | Browser UI via localhost bridge — `dumpsock` on the desktop, control surface in a tab |
-| 4 | Signed installers, notarization, SBOM |
+| 0 | Project scaffold + brand bible |
+| 1 | Go CLI — pull, devices, dry-run, set-mtime, parallel, live-pair, since/until, watch-mode, delete-after |
+| 2 | macOS GUI (Wails) with the v2 mascot, light theme, playful copy |
+| **2.1** | **Multi-tab dashboard (Dashboard / Compare / Progress / Settings), storage gauge, status pills** |
+| 2.5 | iPhone Mirroring auto-empty of Recently Deleted (one Touch ID on the Mac, then bytes really go) |
+| 3 | Landing page at `dumpsock.app` (or `dumpsock.hartle.tech`); browser-control of a desktop bridge |
+| 4 | Signed installers, notarization, SBOM, SLSA provenance |
 | 5 | Mobile-to-mobile (iPhone → Android over OTG, native) |
+
+## Privacy
+
+DumpSock is fully offline. No telemetry. No phone-home. No account. Your data stays yours.
 
 ## Contact
 
 A HARTLE.TECH tool. Questions: `contact@hartle.tech`.
-
-## Privacy
-
-DumpSock is fully offline. No telemetry. No phone-home. No account. Your photos move from your phone to your disk, and nowhere else.

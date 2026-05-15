@@ -1,20 +1,36 @@
-/* DumpSock — HARTLE.TECH dark theme.
-   Apple-tier restraint: no shadows, no gradients beyond hair-thin, no emoji. */
+/* DumpSock v2 — playful light theme.
+   Brand tokens authoritative source: ~/Projects/dumpsock/assets/brand/brand_tokens.yaml.
+   Voice: useful first, joke second. Casual, witty, tongue-in-cheek without being crude. */
 
 :root {
-  --bg: #0D0D0D;
-  --bg-elev: #161616;
-  --bg-elev-2: #1E1E1E;
-  --line: #2A2A2A;
-  --fg: #F2F2F2;
-  --fg-muted: #9A9A9A;
-  --fg-dim: #6B6B6B;
-  --accent: #E53935;
-  --accent-dim: #8E1F1D;
-  --ok: #5DD39E;
-  --warn: #F0B429;
-  --radius: 12px;
-  --radius-sm: 8px;
+  /* Colors */
+  --red:           #E62A28;
+  --red-soft:      #FF4444;
+  --red-pink:      #FF8A8A;
+  --red-tint:      #FFF1EF;     /* hover/pill background */
+  --red-edge:      #FFD7D1;     /* pill border */
+  --ink:           #111111;
+  --charcoal:      #1F1F1F;
+  --slate:         #4B5563;
+  --rib:           #8E8E93;
+  --sock:          #F2F2F4;
+  --line:          #E5E7EB;
+  --bg:            #FAFAF7;
+  --panel:         #FFFFFF;
+  --drool:         #66D1FF;
+
+  /* Typography */
+  --font-head: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Shape */
+  --radius-xl: 28px;
+  --radius-lg: 22px;
+  --radius-md: 16px;
+  --radius-sm: 10px;
+  --shadow:   0 10px 28px rgba(17, 17, 17, 0.08);
+  --shadow-sm: 0 2px 6px rgba(17, 17, 17, 0.06);
 }
 
 * { box-sizing: border-box; }
@@ -23,8 +39,8 @@ html, body {
   margin: 0; padding: 0;
   height: 100%;
   background: var(--bg);
-  color: var(--fg);
-  font: 14px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Inter, system-ui, sans-serif;
+  color: var(--ink);
+  font: 14px/1.5 var(--font-body);
   -webkit-font-smoothing: antialiased;
   user-select: none;
   cursor: default;
@@ -32,8 +48,7 @@ html, body {
 
 input, button { font: inherit; color: inherit; }
 input[type="text"], input[type="date"] {
-  user-select: text;
-  cursor: text;
+  user-select: text; cursor: text;
 }
 
 /* ── titlebar ────────────────────────────────────────────────────── */
@@ -43,69 +58,121 @@ input[type="text"], input[type="date"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 22px;
+  padding: 16px 22px;
+  background: var(--panel);
   border-bottom: 1px solid var(--line);
-  background: var(--bg);
 }
 [data-drag] { --wails-draggable: drag; }
 [data-drag] *:not(button):not(input):not(label):not(.btn) { --wails-draggable: drag; }
 
 .brand { display: flex; align-items: center; gap: 14px; }
-.brandmark { width: 36px; height: 36px; }
-.brandname { font-size: 15px; font-weight: 600; letter-spacing: 0.02em; }
-.brandtag {
-  font-size: 12px; color: var(--fg-muted); margin-top: 2px;
-  font-style: italic;
+.brandmark { width: 44px; height: auto; }
+.wordmark {
+  font-family: var(--font-head);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--ink);
 }
-.meta { font-size: 11px; color: var(--fg-dim); letter-spacing: 0.04em; text-transform: uppercase; }
-.meta .dot { margin: 0 6px; opacity: 0.5; }
+.wordmark .red { color: var(--red); }
+.brandtag {
+  font-size: 12px;
+  color: var(--slate);
+  margin-top: 4px;
+}
 
-/* ── panels ──────────────────────────────────────────────────────── */
+.pills {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  align-items: center;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--red-tint);
+  color: var(--red);
+  font-weight: 700;
+  font-size: 11px;
+  border: 1px solid var(--red-edge);
+  letter-spacing: 0.02em;
+}
+.pill.muted {
+  background: #F3F4F6;
+  color: var(--slate);
+  border-color: #E5E7EB;
+}
+.meta {
+  font-size: 11px;
+  color: var(--rib);
+  font-family: var(--font-mono);
+}
+
+/* ── main / panels ────────────────────────────────────────────────── */
 
 main {
-  padding: 24px 22px;
+  padding: 22px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  height: calc(100% - 80px);
+  gap: 16px;
+  height: calc(100% - 84px);
   overflow-y: auto;
 }
 
-/* Panels default to hidden; the body[data-screen=...] rules at the
-   bottom of this file show exactly one. Previously `display: contents`,
-   which made the <section hidden> attribute ineffective — every panel
-   rendered at once. */
 .panel { display: none; }
 
-.hero {
-  text-align: center;
-  padding: 64px 24px;
-}
-.hero h1 {
-  font-size: 22px;
-  font-weight: 600;
-  margin: 0 0 8px;
-}
-.hero .muted {
-  margin: 0 0 24px;
-  max-width: 420px;
-  margin-left: auto;
-  margin-right: auto;
+body[data-screen="boot"]    #screen-boot,
+body[data-screen="empty"]   #screen-empty,
+body[data-screen="config"]  #screen-config,
+body[data-screen="pulling"] #screen-pulling {
+  display: block;
 }
 
-.card {
-  background: var(--bg-elev);
+.hero {
+  background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 20px;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow);
+  padding: 56px 28px;
+  text-align: center;
+}
+.hero img.mascot {
+  width: 120px;
+  height: auto;
+  margin: 0 auto 18px;
+  display: block;
+}
+.hero h1 {
+  font-family: var(--font-head);
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0 0 10px;
+  color: var(--ink);
+}
+.hero p.muted {
+  margin: 0 auto 24px;
+  max-width: 440px;
+  color: var(--slate);
+  font-size: 15px;
+}
+
+.muted { color: var(--slate); }
+
+/* ── cards ────────────────────────────────────────────────────────── */
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 22px;
 }
 .card + .card { margin-top: 0; }
 
-.success h1 { margin: 0 0 6px; color: var(--ok); }
-
-.muted { color: var(--fg-muted); }
-
-/* ── device card ─────────────────────────────────────────────────── */
+/* ── device card ──────────────────────────────────────────────────── */
 
 .device-row {
   display: flex;
@@ -113,52 +180,70 @@ main {
   justify-content: space-between;
   gap: 16px;
 }
-.device-name { font-size: 18px; font-weight: 600; }
-.device-spec { font-size: 12px; color: var(--fg-muted); margin-top: 4px; }
+.device-icon {
+  width: 48px; height: 48px;
+  border-radius: 14px;
+  background: var(--red-tint);
+  display: grid; place-items: center;
+  font-size: 24px;
+}
+.device-name {
+  font-family: var(--font-head);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.device-spec {
+  font-size: 12px;
+  color: var(--slate);
+  margin-top: 4px;
+  font-family: var(--font-mono);
+}
 
-/* ── form ────────────────────────────────────────────────────────── */
+/* ── form ─────────────────────────────────────────────────────────── */
 
-.field { display: block; margin-bottom: 14px; }
+.field { display: block; margin-bottom: 16px; }
 .field:last-child { margin-bottom: 0; }
 .field-label {
   display: block;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--fg-muted);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--slate);
   margin-bottom: 6px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 .field-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
+  display: flex; gap: 8px; align-items: center;
 }
 input[type="text"], input[type="date"] {
   flex: 1;
-  background: var(--bg-elev-2);
+  background: var(--bg);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 9px 12px;
-  color: var(--fg);
+  padding: 10px 12px;
+  color: var(--ink);
   outline: none;
-  transition: border-color .12s ease;
+  transition: border-color .12s ease, background .12s ease;
+  font-family: var(--font-body);
 }
 input[type="text"]:focus, input[type="date"]:focus {
-  border-color: var(--accent);
+  border-color: var(--red);
+  background: var(--panel);
 }
 
 .check {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 10px 0;
+  margin: 12px 0;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
+  color: var(--ink);
 }
 .check input[type="checkbox"] {
   width: 16px; height: 16px;
-  accent-color: var(--accent);
+  accent-color: var(--red);
 }
 
 details.advanced {
@@ -169,66 +254,68 @@ details.advanced {
 details.advanced summary {
   cursor: pointer;
   font-size: 12px;
-  font-weight: 500;
-  color: var(--fg-muted);
+  font-weight: 700;
+  color: var(--slate);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   list-style: none;
-  user-select: none;
 }
 details.advanced summary::-webkit-details-marker { display: none; }
 details.advanced summary::before {
   content: "▸ ";
   display: inline-block;
   width: 16px;
-  transition: transform .12s ease;
+  color: var(--rib);
 }
 details.advanced[open] summary::before { content: "▾ "; }
 
-/* ── buttons ─────────────────────────────────────────────────────── */
+/* ── buttons ──────────────────────────────────────────────────────── */
 
 .btn {
-  background: var(--bg-elev-2);
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  padding: 8px 14px;
+  padding: 10px 16px;
   cursor: pointer;
-  color: var(--fg);
-  transition: background .12s ease, border-color .12s ease, transform .06s ease;
-  font-weight: 500;
+  color: var(--ink);
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 14px;
+  transition: background .12s ease, border-color .12s ease, transform .06s ease, box-shadow .12s ease;
 }
-.btn:hover { background: #242424; }
+.btn:hover { background: var(--sock); border-color: #D1D5DB; }
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--red);
+  border-color: var(--red);
   color: white;
+  box-shadow: 0 6px 14px rgba(230, 42, 40, 0.25);
 }
-.btn.primary:hover { background: #d72f29; }
+.btn.primary:hover { background: #d72020; border-color: #d72020; box-shadow: 0 8px 18px rgba(230, 42, 40, 0.32); }
 
 .btn.ghost {
   background: transparent;
   border-color: var(--line);
-  color: var(--fg-muted);
+  color: var(--slate);
 }
-.btn.ghost:hover { color: var(--fg); border-color: var(--fg-dim); }
+.btn.ghost:hover { color: var(--ink); border-color: var(--rib); background: var(--panel); }
 
 .btn.big {
-  padding: 12px 28px;
-  font-size: 15px;
-  font-weight: 600;
+  padding: 14px 32px;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
 }
 
 .actions {
-  display: flex;
-  gap: 10px;
+  display: flex; gap: 10px;
   justify-content: center;
-  margin-top: 18px;
+  margin-top: 20px;
 }
 
-/* ── progress ───────────────────────────────────────────────────── */
+/* ── progress ─────────────────────────────────────────────────────── */
 
 .progress-head {
   display: flex;
@@ -236,34 +323,45 @@ details.advanced[open] summary::before { content: "▾ "; }
   justify-content: space-between;
   margin-bottom: 14px;
 }
-.progress-head h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.progress-head h2 {
+  margin: 0;
+  font-family: var(--font-head);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
 
 .progress-bar {
-  height: 6px;
-  background: var(--bg-elev-2);
-  border-radius: 3px;
+  height: 8px;
+  background: var(--sock);
+  border-radius: 999px;
   overflow: hidden;
 }
 .progress-fill {
   height: 100%;
   width: 0%;
-  background: var(--accent);
-  transition: width .2s ease;
+  background: linear-gradient(90deg, var(--red), var(--red-soft));
+  border-radius: 999px;
+  transition: width .25s ease;
 }
 .progress-counts {
   display: flex;
   justify-content: space-between;
   margin-top: 10px;
   font-size: 13px;
+  color: var(--ink);
 }
+.progress-counts b { font-family: var(--font-head); }
 .current {
   margin-top: 12px;
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  font-size: 12px;
-  color: var(--fg-muted);
-  background: var(--bg-elev-2);
-  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--slate);
+  background: var(--bg);
+  padding: 9px 11px;
   border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -273,46 +371,59 @@ details.advanced[open] summary::before { content: "▾ "; }
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 8px;
-  margin-top: 16px;
+  margin-top: 18px;
 }
 .stats > div {
-  background: var(--bg-elev-2);
-  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  padding: 12px 10px;
   border-radius: var(--radius-sm);
   display: flex;
   flex-direction: column;
   gap: 2px;
   text-align: center;
 }
-.stats span { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
-.stats b { font-size: 16px; font-weight: 600; }
+.stats span {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--slate);
+  font-weight: 700;
+}
+.stats b {
+  font-family: var(--font-head);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+/* ── done banner ──────────────────────────────────────────────────── */
 
 .done-banner {
-  margin-top: 18px;
-  padding-top: 18px;
+  margin-top: 20px;
+  padding-top: 20px;
   border-top: 1px solid var(--line);
   display: grid;
   grid-template-columns: auto 1fr;
-  grid-template-rows: auto auto;
+  grid-template-rows: auto auto auto;
   gap: 4px 12px;
   align-items: center;
 }
-/* Hidden-attribute reset — author CSS otherwise wins. */
 .done-banner[hidden] { display: none; }
 
 .done-dot {
-  width: 10px;
-  height: 10px;
+  width: 12px; height: 12px;
   border-radius: 50%;
-  background: var(--ok);
-  box-shadow: 0 0 0 3px rgba(93, 211, 158, 0.18);
+  background: #5DD39E;
+  box-shadow: 0 0 0 4px rgba(93, 211, 158, 0.18);
   grid-row: 1;
 }
 .done-summary {
   grid-row: 1;
-  font-weight: 600;
-  font-size: 15px;
-  color: var(--fg);
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--ink);
 }
 .done-banner .actions {
   grid-column: 1 / -1;
@@ -320,35 +431,39 @@ details.advanced[open] summary::before { content: "▾ "; }
   justify-content: flex-start;
 }
 .done-banner.error .done-dot {
-  background: var(--accent);
-  box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.18);
+  background: var(--red);
+  box-shadow: 0 0 0 4px rgba(230, 42, 40, 0.18);
 }
-.done-banner.error .done-summary { color: var(--accent); }
+.done-banner.error .done-summary { color: var(--red); }
 
 .done-hint {
   grid-column: 1 / -1;
-  margin-top: 4px;
-  padding: 10px 12px;
-  background: var(--bg-elev-2);
+  margin-top: 6px;
+  padding: 12px 14px;
+  background: #FFF8E7;
+  border: 1px solid #F4D99B;
   border-radius: var(--radius-sm);
   font-size: 12px;
-  line-height: 1.5;
-  color: var(--fg-muted);
+  line-height: 1.55;
+  color: #5a460a;
 }
 .done-hint[hidden] { display: none; }
-.done-hint b { color: var(--fg); font-weight: 600; }
+.done-hint b { color: var(--ink); font-weight: 700; }
+
+/* ── log ──────────────────────────────────────────────────────────── */
 
 details.log {
-  background: var(--bg-elev);
+  background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  box-shadow: var(--shadow-sm);
 }
 details.log summary {
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--fg-muted);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--slate);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   list-style: none;
@@ -358,101 +473,109 @@ details.log pre {
   margin: 12px 0 0;
   max-height: 200px;
   overflow-y: auto;
-  font: 11px/1.5 ui-monospace, "SF Mono", Menlo, monospace;
-  color: var(--fg-muted);
+  font: 11px/1.55 var(--font-mono);
+  color: var(--slate);
   white-space: pre-wrap;
   word-break: break-all;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
 }
 
-/* ── danger checkbox ─────────────────────────────────────────────── */
+/* ── danger checkbox ──────────────────────────────────────────────── */
 
 .check.danger {
   align-items: flex-start;
-  padding: 10px 12px;
-  background: rgba(229, 57, 53, 0.06);
-  border: 1px solid rgba(229, 57, 53, 0.25);
+  padding: 12px 14px;
+  background: var(--red-tint);
+  border: 1px solid var(--red-edge);
   border-radius: var(--radius-sm);
 }
 .check.danger b {
   display: block;
-  color: var(--accent);
-  font-weight: 600;
-  margin-bottom: 2px;
+  color: var(--red);
+  font-weight: 700;
+  margin-bottom: 3px;
+  font-family: var(--font-head);
 }
 .check.danger em {
   display: block;
   font-style: normal;
   font-size: 12px;
-  color: var(--fg-muted);
-  line-height: 1.4;
+  color: var(--slate);
+  line-height: 1.5;
 }
 
-.btn.danger { background: var(--accent); border-color: var(--accent); }
-.btn.danger:hover { background: #d72f29; }
+.btn.danger { background: var(--red); border-color: var(--red); color: white; }
+.btn.danger:hover { background: #d72020; border-color: #d72020; }
 
-/* ── modal ───────────────────────────────────────────────────────── */
+/* ── modal ────────────────────────────────────────────────────────── */
 
 .modal-veil {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(17, 17, 17, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 200;
   backdrop-filter: blur(4px);
 }
-/* Restore the HTML `hidden` attribute — `display: flex` on .modal-veil
-   otherwise wins. Same lesson as `.panel { display: contents }` from the
-   earlier fix; see memory feedback_html_hidden_attribute_vs_css_display. */
 .modal-veil[hidden] { display: none; }
+
 .modal {
-  background: var(--bg-elev);
+  background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 28px 28px 20px;
+  border-radius: var(--radius-xl);
+  box-shadow: 0 20px 50px rgba(17, 17, 17, 0.18);
+  padding: 32px 28px 22px;
   max-width: 460px;
   width: calc(100% - 48px);
 }
 .modal h2 {
-  margin: 0 0 12px;
-  font-size: 18px;
-  font-weight: 600;
+  margin: 0 0 14px;
+  font-family: var(--font-head);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.02em;
 }
 .modal p {
   margin: 0 0 14px;
   font-size: 14px;
   line-height: 1.55;
+  color: var(--ink);
+}
+.modal p.muted { color: var(--slate); }
+.modal p code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg);
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
 }
 .modal .actions {
-  margin-top: 18px;
-  display: flex;
-  gap: 10px;
+  margin-top: 20px;
+  display: flex; gap: 10px;
   justify-content: flex-end;
 }
 
-/* ── toast ───────────────────────────────────────────────────────── */
+/* ── toast ────────────────────────────────────────────────────────── */
 
 .toast {
   position: fixed;
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--accent-dim);
-  border: 1px solid var(--accent);
+  background: var(--ink);
   color: white;
-  padding: 10px 16px;
+  padding: 12px 18px;
   border-radius: var(--radius-sm);
   font-size: 13px;
+  font-weight: 600;
   max-width: 480px;
   z-index: 100;
-}
-
-/* ── screen visibility ───────────────────────────────────────────── */
-
-body[data-screen="boot"]    #screen-boot,
-body[data-screen="empty"]   #screen-empty,
-body[data-screen="config"]  #screen-config,
-body[data-screen="pulling"] #screen-pulling {
-  display: block;
+  box-shadow: 0 8px 24px rgba(17, 17, 17, 0.2);
 }

@@ -36,7 +36,7 @@ func main() {
 		Height:            600,
 		MinWidth:          640,
 		MinHeight:         520,
-		BackgroundColour:  &options.RGBA{R: 13, G: 13, B: 13, A: 255}, // #0D0D0D
+		BackgroundColour:  &options.RGBA{R: 250, G: 250, B: 247, A: 255}, // #FAFAF7 v2 light bg
 		DisableResize:     false,
 		Fullscreen:        false,
 		HideWindowOnClose: false,
@@ -47,12 +47,12 @@ func main() {
 		},
 		Mac: &mac.Options{
 			TitleBar:             mac.TitleBarHiddenInset(),
-			Appearance:           mac.NSAppearanceNameDarkAqua,
+			Appearance:           mac.NSAppearanceNameAqua,
 			WebviewIsTransparent: false,
 			WindowIsTranslucent:  false,
 			About: &mac.AboutInfo{
 				Title:   "DumpSock",
-				Message: "Plug your phone in. Wring it dry.\n\nA HARTLE.TECH tool · contact@hartle.tech",
+				Message: "Cloudless freedom for your iPhone.\n\nA HARTLE.TECH tool · contact@hartle.tech",
 			},
 		},
 	})

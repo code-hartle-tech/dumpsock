@@ -43,22 +43,37 @@ A successor to `icloudpd` for the **local** path: phone-over-USB → storage med
 
 ---
 
-## Visual / UX identity
+## Visual / UX identity — v2 (light, mascot-driven, playful)
+
+**Source of truth:** `assets/brand/` — approved PNG assets shipped by the operator on 2026-05-15. The v2 brief lives at `assets/brand/v2_brief.md`. Brand tokens at `assets/brand/brand_tokens.yaml`.
 
 | | |
 |---|---|
-| **Motif** | Wet white knee-high tube sock with two red stripes at the cuff. Drips one drop. Flat, minimal, slightly absurd, slightly elegant. |
-| **Why** | "Dumping" the phone's contents like wringing out a wet sock. Memorable. Doesn't take itself too seriously, but isn't a joke either. |
-| **Tone** | Confident-deadpan. Documentation reads like a competent product, not a meme. The motif provides the smile; the copy stays professional. |
-| **Voice rules** | No exclamation marks in help text. No emoji in CLI output by default (`--emoji` opt-in). One-line error messages with the actionable fix appended. Apple-style "less but sharper." |
-| **Colors** | White (`#FFFFFF`), Red stripe (`#E53935`), Charcoal background (`#0d0d0d` — matches NearTrace docs), faint mint accent for "done" states (`#5dd39e`). |
-| **Type** | System UI font in the GUI/web. CLI inherits the terminal. |
+| **Mascot** | Straight hanging sock with thick black outline, ribbed cuff at the top, two red horizontal stripes near the cuff, white body with soft gray shading, cute manga/emoji-adjacent face (round eyes + smile), small red tongue + blue drool drop *inside* the mouth area only. No external water drops, sweat beads, or splash effects. Toe area implies slight dampness internally. |
+| **Wordmark** | "Dump" in `#111111` ink, "Sock" in `#E62A28` red, Space Grotesk 800-weight, letter-spacing -0.04em. |
+| **Tone** | Casual, witty, slightly tongue-in-cheek. **Useful first, joke second.** Cute and memorable, not crude. CTAs lean playful ("Dump it & back it up", "Wring it dry") but error messages stay precise. |
+| **Voice rules** | Helpful exclamation marks OK in v2 (was banned in v1; lifted). Emoji OK in copy where they earn their keep. One-line error messages with the actionable fix appended. |
+| **Colors** | Primary red `#E62A28`, soft red `#FF4444`, accent pink `#FF8A8A`, ink `#111111`, charcoal `#1F1F1F`, slate `#4B5563`, rib gray `#8E8E93`, sock shade `#F2F2F4`, white `#FFFFFF`, drool blue `#66D1FF`, bg `#FAFAF7`. |
+| **Type** | Logo / headings: **Space Grotesk** (500/700/800). Body / UI: **Inter** (400/500/600/700). Code / logs: **JetBrains Mono**. All loaded from Google Fonts CDN in the embedded webview; the standalone CLI inherits the terminal. |
+| **Theme** | **Light only** for v2. The earlier dark cyberpunk direction is retired. Do not regress into dark mode unless explicitly asked. |
 
-**Icon spec:**
+**Approved assets (do not regenerate; these are authoritative):**
 
-- SVG master at `assets/icon/dumpsock.svg` (1024×1024 viewBox).
-- Render via `scripts/build-icons.sh` to: `.icns` (macOS app), `.ico` (Windows), `.png` set (16/24/32/48/64/128/256/512/1024 for Linux + web favicons).
-- v0: hand-authored SVG placeholder (documented as such in commit + readme). v1: replace with designer-commissioned asset; SVG-source contract stays the same.
+- `assets/brand/dumpsock_mascot_primary.png` — the mascot, 1024×1024-ish.
+- `assets/brand/dumpsock_horizontal_logo.png` — mascot + wordmark side-by-side.
+- `assets/brand/dumpsock_stacked_logo.png` — mascot above wordmark.
+- `assets/brand/dumpsock_monochrome_logo.png` — single-color variant.
+- `assets/brand/dumpsock_app_icons.png` — square-tile previews of platform-specific app icons.
+
+**Mockups for downstream UI work** (Phase 2.1+):
+
+`assets/mockups/` holds the operator's design-spec PNGs — clean mobile UI, playful desktop UI, brand guidelines, landing-page mock. Reference these when building the multi-tab dashboard, the storage gauge component, or the landing page.
+
+**Icon spec (v2):**
+
+- Primary: ship the approved mascot PNG directly to the embedded frontend (`internal/frontend/dist/dumpsock-mascot.png`) and as the macOS / Windows / Linux app-icon source.
+- `scripts/build-icons.sh` converts the mascot PNG to `.icns` / `.ico` / multi-size PNG set via `sips` + `iconutil` + `icotool`. No SVG re-authoring — the PNG is the master.
+- Old hand-authored SVG at `assets/icon/dumpsock.svg` is **deprecated**; kept for git history but never re-rendered.
 
 ---
 

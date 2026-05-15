@@ -1,0 +1,60 @@
+name: DumpSock v2
+version: 2
+style: playful_light
+
+colors:
+  primary_red:
+    hex: "#E62A28"
+    rgb: "230, 42, 40"
+  soft_red:
+    hex: "#FF4444"
+    rgb: "255, 68, 68"
+  accent_pink:
+    hex: "#FF8A8A"
+    rgb: "255, 138, 138"
+  ink_black:
+    hex: "#111111"
+    rgb: "17, 17, 17"
+  charcoal:
+    hex: "#1F1F1F"
+    rgb: "31, 31, 31"
+  slate_gray:
+    hex: "#4B5563"
+    rgb: "75, 85, 99"
+  rib_gray:
+    hex: "#8E8E93"
+    rgb: "142, 142, 147"
+  sock_shade:
+    hex: "#F2F2F4"
+    rgb: "242, 242, 244"
+  white:
+    hex: "#FFFFFF"
+    rgb: "255, 255, 255"
+  drool_blue:
+    hex: "#66D1FF"
+    rgb: "102, 209, 255"
+
+typography:
+  logo_heading: "Space Grotesk"
+  body: "Inter"
+  mono: "JetBrains Mono"
+
+mascot:
+  silhouette: straight_hanging_sock
+  outline: thick_black
+  cuff: ribbed
+  stripes: 2_red_bands
+  body: white_with_soft_gray_shading
+  expression: cute_playful_drooling_emoji_energy
+  dampness: internal_to_toebox_only
+  avoid:
+    - external_water_drops
+    - sweat_beads
+    - realistic_feet
+    - cyberpunk_dark_mode
+
+ui:
+  theme: light_only
+  cta_style: bold_red
+  cards: rounded
+  vibe: playful_clean_useful

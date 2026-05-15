@@ -4,21 +4,23 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>DumpSock</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body data-screen="boot">
   <header class="titlebar" data-drag>
     <div class="brand">
-      <img class="brandmark" src="dumpsock.svg" alt="">
+      <img class="brandmark" src="dumpsock-mascot.png" alt="DumpSock mascot">
       <div class="brandtext">
-        <div class="brandname">DumpSock</div>
-        <div class="brandtag" id="tagline">Plug your phone in. Wring it dry.</div>
+        <div class="wordmark">Dump<span class="red">Sock</span></div>
+        <div class="brandtag" id="tagline">Cloudless freedom for your iPhone.</div>
       </div>
     </div>
-    <div class="meta">
-      <span id="version">dev</span>
-      <span class="dot">·</span>
-      <span>HARTLE.TECH</span>
+    <div class="pills">
+      <span class="pill">100% Local</span>
+      <span class="pill muted" id="version">dev</span>
     </div>
   </header>
 
@@ -26,18 +28,21 @@
     <!-- ▼ boot / waiting for usbmuxd ▼ -->
     <section class="panel" id="screen-boot">
       <div class="hero">
+        <img class="mascot" src="dumpsock-mascot.png" alt="">
         <h1>Looking for a phone…</h1>
         <p class="muted">Plug an iPhone in over USB and unlock it. If macOS asks
-          you to trust this computer, say yes.</p>
+          you to trust this computer, say yes — we promise we won't tell.</p>
       </div>
     </section>
 
     <!-- ▼ no device ▼ -->
     <section class="panel" id="screen-empty" hidden>
       <div class="hero">
+        <img class="mascot" src="dumpsock-mascot.png" alt="">
         <h1>No phone connected.</h1>
-        <p class="muted">Plug an iPhone into a USB port and unlock it.</p>
-        <button class="btn primary" id="btn-rescan-empty">Rescan</button>
+        <p class="muted">Plug an iPhone into a USB port and unlock it. We'll be
+          right here, ready to wring it dry.</p>
+        <button class="btn primary big" id="btn-rescan-empty">Rescan</button>
       </div>
     </section>
 
@@ -45,9 +50,12 @@
     <section class="panel" id="screen-config" hidden>
       <div class="card device">
         <div class="device-row">
-          <div>
-            <div class="device-name" id="device-name">—</div>
-            <div class="device-spec" id="device-spec">—</div>
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div class="device-icon">📱</div>
+            <div>
+              <div class="device-name" id="device-name">—</div>
+              <div class="device-spec" id="device-spec">—</div>
+            </div>
           </div>
           <button class="btn ghost" id="btn-rescan">Rescan</button>
         </div>
@@ -55,7 +63,7 @@
 
       <div class="card">
         <label class="field">
-          <span class="field-label">Output folder</span>
+          <span class="field-label">Where should we stash it?</span>
           <div class="field-row">
             <input type="text" id="output-path" placeholder="Choose a folder…" readonly>
             <button class="btn" id="btn-pick-output">Choose…</button>
@@ -87,15 +95,15 @@
           <label class="check danger">
             <input type="checkbox" id="delete-after">
             <span>
-              <b>Delete from device after backup</b>
-              <em>Removes each file from /var/mobile/Media/DCIM/ on the iPhone once it's safely on disk. Storage is freed immediately. Photos.app keeps deleted items in "Recently Deleted" for 30 days — that's an iOS safety feature DumpSock cannot bypass over USB.</em>
+              <b>Wring it dry — delete from device after backup</b>
+              <em>Removes each file from <code>/var/mobile/Media/DCIM/</code> on the iPhone once it's safely on disk. Storage freed immediately. Photos.app keeps deleted items in "Recently Deleted" for 30 days — iOS safety feature DumpSock can't bypass over USB.</em>
             </span>
           </label>
         </details>
       </div>
 
       <div class="actions">
-        <button class="btn primary big" id="btn-pull">Pull</button>
+        <button class="btn primary big" id="btn-pull">Dump it &amp; back it up</button>
       </div>
     </section>
 
@@ -114,11 +122,11 @@
         </div>
         <div class="current" id="current-file">—</div>
         <div class="stats">
-          <div><span class="muted">Pulled</span><b id="s-pulled">0</b></div>
-          <div><span class="muted">Skipped</span><b id="s-skipped">0</b></div>
-          <div><span class="muted">Suffixed</span><b id="s-suffixed">0</b></div>
-          <div><span class="muted">No date</span><b id="s-nodate">0</b></div>
-          <div><span class="muted">Errors</span><b id="s-errors">0</b></div>
+          <div><span>Pulled</span><b id="s-pulled">0</b></div>
+          <div><span>Skipped</span><b id="s-skipped">0</b></div>
+          <div><span>Suffixed</span><b id="s-suffixed">0</b></div>
+          <div><span>No date</span><b id="s-nodate">0</b></div>
+          <div><span>Errors</span><b id="s-errors">0</b></div>
         </div>
         <div class="done-banner" id="done-banner" hidden>
           <div class="done-dot" id="done-dot"></div>
@@ -126,12 +134,12 @@
           <div class="done-hint" id="done-hint" hidden>
             Photos.app still shows them? Open <b>Photos &gt; Albums &gt;
             Recently Deleted</b> on your iPhone &gt; Select &gt; Delete All.
-            iOS keeps deleted media there for 30 days. We can't skip
-            that over USB — it's biometric-gated on the device.
+            iOS keeps deleted media there for 30 days. We can't skip that
+            over USB — it's biometric-gated on the device.
           </div>
           <div class="actions">
-            <button class="btn primary" id="btn-reveal">Reveal in Finder</button>
-            <button class="btn ghost" id="btn-again">Pull again</button>
+            <button class="btn primary" id="btn-reveal">Open the folder</button>
+            <button class="btn ghost" id="btn-again">Dump again</button>
           </div>
         </div>
       </div>
@@ -147,7 +155,7 @@
     <!-- ▼ delete confirmation modal ▼ -->
     <div class="modal-veil" id="delete-confirm" hidden>
       <div class="modal">
-        <h2>Delete from the iPhone?</h2>
+        <h2>Wring it dry?</h2>
         <p>After every file is safely written to disk, DumpSock will
           remove it from <code>/var/mobile/Media/DCIM/</code> on your
           iPhone over USB. Storage is freed immediately.</p>
@@ -159,7 +167,7 @@
           safety feature — neither DumpSock nor any other USB tool
           can skip it without your tap on the phone.</p>
         <div class="actions">
-          <button class="btn ghost" id="btn-cancel-delete">Don't delete</button>
+          <button class="btn ghost" id="btn-cancel-delete">Keep them</button>
           <button class="btn primary danger" id="btn-confirm-delete">Pull, then delete</button>
         </div>
       </div>

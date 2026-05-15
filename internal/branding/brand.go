@@ -4,7 +4,8 @@
 package branding
 
 // Tagline appears under the root command's help. Single-line, no period.
-const Tagline = "Plug your phone in. Wring it dry."
+// v2 brand: playful + product-first. "Cloudless freedom for your iPhone."
+const Tagline = "Cloudless freedom for your iPhone."
 
 // Footer appears at the bottom of help output and --version output.
 const Footer = "A HARTLE.TECH tool · contact@hartle.tech"
