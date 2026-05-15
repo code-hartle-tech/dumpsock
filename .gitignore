@@ -44,4 +44,7 @@
 /docs/external/.vitepress/cache/
 /docs/internal/.vitepress/dist/
 /docs/internal/.vitepress/cache/
-/docs/package-lock.json
+# NOTE: /docs/package-lock.json is intentionally NOT ignored — committing
+# it gives CI (npm ci) reproducible installs and is the standard practice
+# for Pages-deployed sites. Add it back to the gitignore only if you
+# really know why.
