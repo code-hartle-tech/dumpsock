@@ -1,129 +1,77 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 480" width="320" height="480"
-     role="img" aria-label="DumpSock mascot — a friendly hanging sock with a drool drop">
+     role="img" aria-label="DumpSock mascot">
   <title>DumpSock mascot</title>
-  <desc>Straight hanging tube sock, thick black outline, ribbed cuff at the top, two red stripes near the cuff, cute face (round black eyes with white catchlights), red tongue inside an open smile, single drool-blue drop hanging inside the mouth. No external water drops, no extra decoration. Drawn from scratch by HARTLE.TECH from the v2 approved direction.</desc>
 
   <defs>
-    <!-- Soft horizontal shading from white on the left to a hint of gray on the right -->
-    <linearGradient id="ds-body" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%"   stop-color="#FFFFFF"/>
-      <stop offset="55%"  stop-color="#FFFFFF"/>
-      <stop offset="100%" stop-color="#E9ECEF"/>
-    </linearGradient>
-    <!-- Tongue gradient for a tiny bit of depth -->
     <linearGradient id="ds-tongue" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%"   stop-color="#FF6B6B"/>
-      <stop offset="100%" stop-color="#D6352A"/>
+      <stop offset="0%"   stop-color="#FF5A4A"/>
+      <stop offset="100%" stop-color="#D02519"/>
     </linearGradient>
-    <!-- Drool gradient -->
     <linearGradient id="ds-drool" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%"   stop-color="#9CDFFF"/>
-      <stop offset="100%" stop-color="#3CB4F2"/>
+      <stop offset="0%"   stop-color="#9BDBFB"/>
+      <stop offset="100%" stop-color="#46B5EF"/>
     </linearGradient>
-    <!-- Subtle drop shadow for the whole mascot -->
-    <filter id="ds-shadow" x="-10%" y="-5%" width="120%" height="115%">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
-      <feOffset dx="0" dy="4" result="off"/>
-      <feComponentTransfer><feFuncA type="linear" slope="0.18"/></feComponentTransfer>
-      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
   </defs>
 
-  <g filter="url(#ds-shadow)">
+  <path d="
+    M 78 28
+    L 242 28
+    Q 262 28 262 48
+    L 262 388
+    C 262 410, 256 426, 240 438
+    C 228 448, 220 454, 215 460
+    C 211 466, 204 462, 200 454
+    C 197 446, 192 436, 185 430
+    C 180 442, 173 458, 165 463
+    C 158 462, 152 452, 146 438
+    C 142 442, 137 458, 130 462
+    C 122 460, 113 450, 104 442
+    C 92 436, 78 432, 68 422
+    C 60 414, 56 402, 56 388
+    L 56 48
+    Q 56 28 76 28
+    Z
+  " fill="#FFFFFF" stroke="#111111" stroke-width="7" stroke-linejoin="round" stroke-linecap="round"/>
 
-    <!-- ── Sock body ──────────────────────────────────────────────
-         Straight hanging silhouette: nearly rectangular with rounded
-         shoulders at the cuff and a fuller rounded toe at the bottom.
-         ────────────────────────────────────────────────────────── -->
-    <path d="
-      M 72 30
-      L 248 30
-      Q 268 30 268 50
-      L 268 396
-      Q 268 432 252 446
-      Q 234 462 200 462
-      L 120 462
-      Q 86 462 68 446
-      Q 52 432 52 396
-      L 52 50
-      Q 52 30 72 30
-      Z
-    "
-    fill="url(#ds-body)" stroke="#0F1115" stroke-width="6" stroke-linejoin="round"/>
-
-    <!-- ── Ribbed cuff ────────────────────────────────────────────
-         Vertical short strokes inside the cuff zone. Slight taper at
-         the outermost pair so the cuff "rolls" subtly into the body.
-         ────────────────────────────────────────────────────────── -->
-    <g stroke="#A1A6AE" stroke-width="2.4" stroke-linecap="round">
-      <line x1="78"  y1="46" x2="78"  y2="98"/>
-      <line x1="96"  y1="42" x2="96"  y2="100"/>
-      <line x1="114" y1="42" x2="114" y2="100"/>
-      <line x1="132" y1="42" x2="132" y2="100"/>
-      <line x1="150" y1="42" x2="150" y2="100"/>
-      <line x1="168" y1="42" x2="168" y2="100"/>
-      <line x1="186" y1="42" x2="186" y2="100"/>
-      <line x1="204" y1="42" x2="204" y2="100"/>
-      <line x1="222" y1="42" x2="222" y2="100"/>
-      <line x1="240" y1="46" x2="240" y2="98"/>
-    </g>
-
-    <!-- ── Two red stripes ────────────────────────────────────────
-         Bands sit just below the cuff. Slight inset from the body
-         outline so they "wrap" the sock instead of running edge-to-edge.
-         ────────────────────────────────────────────────────────── -->
-    <rect x="55" y="112" width="210" height="20" fill="#E74C3C"/>
-    <rect x="55" y="140" width="210" height="20" fill="#E74C3C"/>
-
-    <!-- ── Face ──────────────────────────────────────────────────
-         Round eyes with offset catchlights, soft small smile with an
-         open mouth, red tongue inside, single drool drop dripping
-         inside the mouth (NOT outside the silhouette).
-         ────────────────────────────────────────────────────────── -->
-
-    <!-- left eye -->
-    <ellipse cx="124" cy="222" rx="14" ry="17" fill="#0F1115"/>
-    <ellipse cx="128.5" cy="216" rx="3.5" ry="4" fill="#FFFFFF"/>
-    <ellipse cx="121"  cy="227" rx="1.5" ry="2" fill="#FFFFFF" opacity="0.7"/>
-
-    <!-- right eye -->
-    <ellipse cx="196" cy="222" rx="14" ry="17" fill="#0F1115"/>
-    <ellipse cx="200.5" cy="216" rx="3.5" ry="4" fill="#FFFFFF"/>
-    <ellipse cx="193"  cy="227" rx="1.5" ry="2" fill="#FFFFFF" opacity="0.7"/>
-
-    <!-- mouth opening (dark) -->
-    <path d="
-      M 138 268
-      Q 160 305 182 268
-      Q 174 296 160 298
-      Q 146 296 138 268
-      Z
-    " fill="#0F1115"/>
-
-    <!-- tongue -->
-    <path d="
-      M 146 279
-      Q 160 300 174 279
-      Q 170 292 160 293
-      Q 150 292 146 279
-      Z
-    " fill="url(#ds-tongue)"/>
-
-    <!-- drool drop dripping from inside the mouth (kept inside the silhouette) -->
-    <path d="
-      M 180 293
-      C 178 304 177 312 180.5 320
-      C 185 326 192 322 192 314
-      C 192 308 187 299 184 293
-      Z
-    " fill="url(#ds-drool)"/>
-    <!-- tiny highlight on the drop -->
-    <ellipse cx="183.5" cy="305" rx="1.6" ry="3" fill="#FFFFFF" opacity="0.65"/>
-
-    <!-- subtle blush dots (very faint, optional but adds cuteness) -->
-    <ellipse cx="98"  cy="252" rx="9" ry="5" fill="#FFB6B6" opacity="0.55"/>
-    <ellipse cx="222" cy="252" rx="9" ry="5" fill="#FFB6B6" opacity="0.55"/>
-
+  <g stroke="#BDC0C6" stroke-width="4" stroke-linecap="round" fill="none">
+    <path d="M 88 44 c 4 9 -4 17 0 26 c 4 9 -4 17 0 26"/>
+    <path d="M 112 42 c 4 9 -4 17 0 26 c 4 9 -4 17 0 28"/>
+    <path d="M 136 42 c 4 9 -4 17 0 26 c 4 9 -4 17 0 28"/>
+    <path d="M 160 42 c 4 9 -4 17 0 26 c 4 9 -4 17 0 28"/>
+    <path d="M 184 42 c 4 9 -4 17 0 26 c 4 9 -4 17 0 28"/>
+    <path d="M 208 42 c 4 9 -4 17 0 26 c 4 9 -4 17 0 28"/>
+    <path d="M 232 44 c 4 9 -4 17 0 26 c 4 9 -4 17 0 26"/>
   </g>
+
+  <rect x="56" y="118" width="206" height="18" fill="#E74C3C"/>
+  <rect x="56" y="146" width="206" height="18" fill="#E74C3C"/>
+
+  <ellipse cx="124" cy="222" rx="22" ry="24" fill="#111111"/>
+  <ellipse cx="196" cy="222" rx="22" ry="24" fill="#111111"/>
+  <path d="M 109 216 Q 124 238 139 216" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" fill="none"/>
+  <path d="M 181 216 Q 196 238 211 216" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" fill="none"/>
+
+  <path d="
+    M 140 272
+    Q 146 262 154 270
+    Q 160 260 168 270
+    Q 174 262 182 272
+    Q 186 290 180 304
+    Q 173 318 161 320
+    Q 149 318 142 304
+    Q 136 290 140 272
+    Z
+  " fill="#111111"/>
+
+  <ellipse cx="164" cy="302" rx="9" ry="9" fill="url(#ds-tongue)"/>
+
+  <path d="
+    M 159 318
+    C 158 332, 156 346, 160 358
+    C 165 368, 172 366, 172 356
+    C 172 344, 168 328, 165 318
+    Z
+  " fill="url(#ds-drool)"/>
+  <ellipse cx="166" cy="342" rx="2" ry="4" fill="#FFFFFF" opacity="0.65"/>
 </svg>
