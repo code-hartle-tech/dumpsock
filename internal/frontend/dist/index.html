@@ -6,310 +6,548 @@
   <title>DumpSock</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body data-tab="dashboard">
 
-  <!-- ════════════════════════════════════════════════════════════════
-       WINDOW CHROME — short draggable strip at the top. Traffic-light
-       buttons live HERE so nothing important hides under them. The
-       mockup shows the same pattern: a window-chrome bar on top, then
-       sidebar + content below.
-       ════════════════════════════════════════════════════════════════ -->
+  <!-- Window chrome strip (traffic lights occupy the left 88px) -->
   <header class="chrome" data-drag>
     <div class="chrome-title">DumpSock v2</div>
     <div class="chrome-right">
-      <span class="pill">100% Local</span>
-      <span class="pill">No Cloud</span>
+      <button class="chrome-action" id="btn-settings-chrome" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      </button>
     </div>
   </header>
 
   <div class="layout">
 
-    <!-- ════════════════════════════════════════════════════════════
-         SIDEBAR — brand at top, nav, bottom status pill
-         ════════════════════════════════════════════════════════════ -->
+    <!-- Sidebar -->
     <aside class="sidebar">
       <div class="sidebar-brand">
         <img class="brandmark" src="dumpsock-mascot.png" alt="DumpSock mascot">
         <div>
           <div class="wordmark">Dump<span class="red">Sock</span></div>
-          <div class="brandtag">Local. Private. All Yours.</div>
+          <div class="brandtag">Back up. Compare. Keep what matters.</div>
         </div>
       </div>
 
       <nav class="sidebar-nav" role="tablist">
         <button class="nav-item" data-tab-target="dashboard" role="tab">
-          <span class="nav-icon">▦</span><span>Dashboard</span>
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+          </span>
+          <span>Dashboard</span>
         </button>
         <button class="nav-item" data-tab-target="compare" role="tab">
-          <span class="nav-icon">⇄</span><span>Compare &amp; Merge</span>
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+          </span>
+          <span>Compare &amp; Merge</span>
         </button>
-        <button class="nav-item" data-tab-target="progress" role="tab">
-          <span class="nav-icon">↓</span><span>Backup Progress</span>
+        <button class="nav-item" data-tab-target="backups" role="tab">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+          </span>
+          <span>Backups</span>
         </button>
         <button class="nav-item" data-tab-target="logs" role="tab">
-          <span class="nav-icon">≡</span><span>Logs</span>
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+          </span>
+          <span>Logs</span>
         </button>
         <button class="nav-item" data-tab-target="settings" role="tab">
-          <span class="nav-icon">⚙</span><span>Settings</span>
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          </span>
+          <span>Settings</span>
         </button>
       </nav>
 
       <div class="sidebar-bottom">
         <a class="sidebar-link" href="https://github.com/code-hartle-tech/dumpsock" target="_blank">
-          <span class="nav-icon">?</span><span>Help &amp; Docs</span>
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          </span>
+          <span>Help &amp; Docs</span>
         </a>
         <button class="sidebar-link" data-tab-target="settings">
-          <span class="nav-icon">i</span><span>About DumpSock</span>
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+          </span>
+          <span>About DumpSock</span>
         </button>
         <div class="status-pill">
           <span class="dot ok"></span>
           <div class="status-text">
             <div><b>All Systems Go</b></div>
-            <div class="status-version" id="version">dev</div>
+            <div class="status-version" id="version">v dev</div>
           </div>
         </div>
       </div>
     </aside>
 
-    <!-- ════════════════════════════════════════════════════════════
-         CONTENT AREA — switches by [data-tab]
-         ════════════════════════════════════════════════════════════ -->
+    <!-- Content -->
     <main class="content">
+      <div class="content-inner">
 
-      <!-- ── DASHBOARD ─────────────────────────────────────────── -->
-      <section class="tab" data-tab="dashboard">
-        <h1 class="tab-title">Dashboard <span class="tab-subtitle">overview, device status, and quick actions</span></h1>
+        <!-- ══════════════════════════ DASHBOARD ══════════════════════════ -->
+        <section class="tab" data-tab="dashboard">
+          <h1 class="tab-title">Dashboard</h1>
+          <p class="tab-subtitle">Overview, device status, and quick actions</p>
 
-        <!-- Connected Device -->
-        <div class="card">
-          <div class="card-head">
-            <h3>Connected Device</h3>
-            <button class="btn ghost small" id="btn-rescan">Rescan</button>
-          </div>
-          <div id="device-card-body">
-            <div class="device-empty" id="device-empty">
-              <img class="mascot-sm" src="dumpsock-mascot.png" alt="">
-              <div>
-                <div class="device-empty-title">Looking for a phone…</div>
-                <div class="muted">Plug an iPhone in over USB and unlock it. Tap <b>Trust</b> if asked.</div>
-              </div>
+          <!-- Connected Device -->
+          <div class="card">
+            <div class="card-head">
+              <h3>Connected Device</h3>
+              <button class="btn ghost small" id="btn-rescan">Rescan</button>
             </div>
-            <div class="device-row" id="device-row" hidden>
-              <div class="device-icon">📱</div>
-              <div class="device-info">
-                <div class="device-name" id="device-name">—</div>
-                <div class="device-spec" id="device-spec">—</div>
+            <div id="device-card-body">
+              <div class="device-empty" id="device-empty">
+                <img class="mascot-sm" src="dumpsock-mascot.png" alt="">
+                <div>
+                  <div class="device-empty-title">Looking for a phone…</div>
+                  <div class="muted">Plug an iPhone in over USB and unlock it. Tap <b>Trust</b> if asked.</div>
+                </div>
               </div>
-              <div class="device-side">
-                <div class="device-battery">
+              <div class="device-row" id="device-row" hidden>
+                <div class="device-icon">📱</div>
+                <div class="device-info">
+                  <div class="device-name">
+                    <span id="device-name">—</span>
+                    <span class="pill success" id="device-trust"><span class="dot"></span>Connected</span>
+                  </div>
+                  <div class="device-spec" id="device-spec">—</div>
+                </div>
+                <div class="device-side">
                   <span class="pill muted small" id="device-storage-pill">—</span>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Storage Overview -->
-        <div class="card">
-          <div class="card-head">
-            <h3>Storage Overview</h3>
-            <span class="muted small" id="gauge-state">—</span>
-          </div>
-          <div class="storage-row">
-            <div class="donut-wrap">
-              <svg class="donut" viewBox="0 0 200 200" id="donut-svg" aria-hidden="true">
-                <circle cx="100" cy="100" r="78" fill="none" stroke="#F2F2F4" stroke-width="28"/>
-                <circle cx="100" cy="100" r="78" fill="none" id="donut-used"
-                        stroke="#E62A28" stroke-width="28"
-                        stroke-dasharray="0 489.84"
-                        transform="rotate(-90 100 100)"
-                        stroke-linecap="butt"/>
-              </svg>
-              <div class="donut-center">
-                <div class="donut-value" id="donut-value">—</div>
-                <div class="donut-label" id="donut-label">no device</div>
-              </div>
-            </div>
-            <div class="storage-breakdown">
-              <div class="storage-row-item">
-                <span class="legend-dot used"></span>
-                <span class="legend-label">Used</span>
-                <span class="legend-value" id="storage-used">—</span>
-              </div>
-              <div class="storage-row-item">
-                <span class="legend-dot free"></span>
-                <span class="legend-label">Free</span>
-                <span class="legend-value" id="storage-free">—</span>
-              </div>
-              <div class="storage-row-item">
-                <span class="legend-dot total"></span>
-                <span class="legend-label">Total</span>
-                <span class="legend-value" id="storage-total">—</span>
-              </div>
-              <div class="storage-note muted small">
-                AFC reports the iPhone's filesystem totals. Categorical
-                breakdown (Photos / Videos / Apps / Other) needs Photos.app
-                stats — coming in a follow-up.
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Last Backup -->
-        <div class="card last-backup-card">
-          <div>
-            <div class="muted small uppercase">Last Backup</div>
-            <div class="last-backup-time" id="last-backup-time">No backups yet</div>
-            <div class="muted small" id="last-backup-detail">—</div>
-          </div>
-          <button class="btn ghost small" id="btn-reveal-output">View in Finder</button>
-        </div>
-
-        <!-- Pull CTA -->
-        <div class="card pull-card">
-          <div class="output-row">
-            <div class="output-label">Saves to</div>
-            <div class="output-path" id="output-path-display">—</div>
-            <button class="btn ghost small" id="btn-pick-output">Change…</button>
-          </div>
-          <button class="btn primary big block" id="btn-pull">
-            <span class="btn-icon">↓</span> Back Up Now
-          </button>
-          <div class="cta-or muted small">or <a href="#" data-tab-target="compare">Compare &amp; Merge</a></div>
-        </div>
-      </section>
-
-      <!-- ── COMPARE ──────────────────────────────────────────── -->
-      <section class="tab" data-tab="compare" hidden>
-        <h1 class="tab-title">Compare &amp; Merge <span class="tab-subtitle">local device vs backup, merge changes</span></h1>
-        <div class="card center coming-soon">
-          <img class="mascot-md" src="dumpsock-mascot.png" alt="">
-          <h2>Compare &amp; Merge — coming soon</h2>
-          <p class="muted">Side-by-side: iPhone vs the folder on your disk. See what's only on the phone, only on disk, or in both. Bulk select + actions.</p>
-          <p class="muted small">Tracked as <a href="https://github.com/code-hartle-tech/dumpsock/issues/2" target="_blank">issue #2</a>.</p>
-        </div>
-      </section>
-
-      <!-- ── BACKUP PROGRESS ──────────────────────────────────── -->
-      <section class="tab" data-tab="progress" hidden>
-        <h1 class="tab-title">Backup Progress <span class="tab-subtitle">live job + history</span></h1>
-        <div class="card" id="run-card">
-          <div class="progress-head">
-            <h2 id="progress-phase">No backup running.</h2>
-            <button class="btn ghost" id="btn-cancel" hidden>Cancel</button>
-          </div>
-          <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
-          <div class="progress-counts">
-            <span><b id="count-done">0</b> / <span id="count-total">0</span></span>
-            <span class="muted" id="count-rate">—</span>
-          </div>
-          <div class="current" id="current-file">—</div>
-          <div class="stats">
-            <div><span>Pulled</span><b id="s-pulled">0</b></div>
-            <div><span>Skipped</span><b id="s-skipped">0</b></div>
-            <div><span>Suffixed</span><b id="s-suffixed">0</b></div>
-            <div><span>No date</span><b id="s-nodate">0</b></div>
-            <div><span>Errors</span><b id="s-errors">0</b></div>
-          </div>
-          <div class="done-banner" id="done-banner" hidden>
-            <div class="done-dot" id="done-dot"></div>
-            <div class="done-summary" id="done-summary">Done.</div>
-            <div class="done-hint" id="done-hint" hidden>
-              <p><b>About the ghosts in Photos.app:</b> the bytes are off your phone, but Photos.app still has database entries that point to the now-missing files. They show up as photos with a small <b>!</b> badge and "unable to load higher quality version".</p>
-              <p>To clean them up: open <b>Photos &gt; Library &gt; All Photos</b> on your iPhone &gt; tap any ghost &gt; <b>Select &gt; Select All &gt; Trash</b> &gt; then open <b>Albums &gt; Recently Deleted &gt; Select &gt; Delete All</b>. Two steps. We're working on automating it (<a href="https://github.com/code-hartle-tech/dumpsock/issues/1" target="_blank">issue #1</a> — one Touch ID on the Mac).</p>
-              <p class="muted small">FYI: iPhone storage takes a few minutes to fully reflect freed bytes after a large dump — that's iOS lazily reindexing.</p>
-            </div>
-            <div class="done-actions">
-              <button class="btn primary" id="btn-reveal">Open the folder</button>
-              <button class="btn ghost" id="btn-again">Dump again</button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ── LOGS ─────────────────────────────────────────────── -->
-      <section class="tab" data-tab="logs" hidden>
-        <h1 class="tab-title">Logs <span class="tab-subtitle">live log + job history</span></h1>
-        <div class="card">
-          <div class="card-head">
-            <h3>Live Log</h3>
-            <button class="btn ghost small" id="btn-clear-log">Clear</button>
-          </div>
-          <pre class="log-output" id="log">No log yet. Run a backup to see live output.</pre>
-        </div>
-      </section>
-
-      <!-- ── SETTINGS ─────────────────────────────────────────── -->
-      <section class="tab" data-tab="settings" hidden>
-        <h1 class="tab-title">Settings <span class="tab-subtitle">how DumpSock backs up + how it behaves</span></h1>
-
-        <div class="settings-grid">
+          <!-- Storage Overview -->
           <div class="card">
-            <div class="card-head"><h3>Output</h3></div>
-            <label class="field">
-              <span class="field-label">Where should we stash it?</span>
-              <div class="field-row">
-                <input type="text" id="output-path" placeholder="Choose a folder…" readonly>
-                <button class="btn" id="btn-pick-output-settings">Choose…</button>
+            <div class="card-head">
+              <h3>Storage Overview</h3>
+              <span class="muted small" id="gauge-state">—</span>
+            </div>
+            <div class="storage-row">
+              <div class="donut-wrap">
+                <svg class="donut" viewBox="0 0 200 200" id="donut-svg" aria-hidden="true">
+                  <circle class="donut-seg donut-track" cx="100" cy="100" r="78"
+                          stroke-dasharray="489.84 0"/>
+                  <circle class="donut-seg donut-photos" cx="100" cy="100" r="78" id="seg-photos"
+                          stroke-dasharray="0 489.84" stroke-dashoffset="0"/>
+                  <circle class="donut-seg donut-videos" cx="100" cy="100" r="78" id="seg-videos"
+                          stroke-dasharray="0 489.84" stroke-dashoffset="0"/>
+                  <circle class="donut-seg donut-apps" cx="100" cy="100" r="78" id="seg-apps"
+                          stroke-dasharray="0 489.84" stroke-dashoffset="0"/>
+                  <circle class="donut-seg donut-other" cx="100" cy="100" r="78" id="seg-other"
+                          stroke-dasharray="0 489.84" stroke-dashoffset="0"/>
+                </svg>
+                <div class="donut-center">
+                  <div class="donut-value" id="donut-value">—</div>
+                  <div class="donut-label" id="donut-label">no device</div>
+                </div>
               </div>
-            </label>
-          </div>
-
-          <div class="card">
-            <div class="card-head"><h3>Date filter</h3></div>
-            <div class="settings-row">
-              <label class="field flex-1">
-                <span class="field-label">Only files from</span>
-                <input type="date" id="since" placeholder="YYYY-MM-DD">
-              </label>
-              <label class="field flex-1">
-                <span class="field-label">Only files until</span>
-                <input type="date" id="until" placeholder="YYYY-MM-DD">
-              </label>
+              <div class="storage-breakdown">
+                <div class="storage-legend">
+                  <span class="legend-dot photos"></span>
+                  <span class="legend-label">Photos</span>
+                  <span class="legend-value" id="legend-photos">—</span>
+                </div>
+                <div class="storage-legend">
+                  <span class="legend-dot videos"></span>
+                  <span class="legend-label">Videos</span>
+                  <span class="legend-value" id="legend-videos">—</span>
+                </div>
+                <div class="storage-legend">
+                  <span class="legend-dot apps"></span>
+                  <span class="legend-label">Apps</span>
+                  <span class="legend-value" id="legend-apps">—</span>
+                </div>
+                <div class="storage-legend">
+                  <span class="legend-dot other"></span>
+                  <span class="legend-label">Other</span>
+                  <span class="legend-value" id="legend-other">—</span>
+                </div>
+                <div class="storage-note muted">
+                  Categorical estimates (Photos / Videos / Apps / Other) are
+                  derived from a quick DCIM walk; the deep Photos.app
+                  breakdown ships in a follow-up.
+                </div>
+              </div>
             </div>
           </div>
 
-          <div class="card">
-            <div class="card-head"><h3>Behavior</h3></div>
-            <label class="check">
-              <input type="checkbox" id="no-mtime">
-              <span>Don't set file mtime to capture date</span>
-            </label>
-            <label class="check">
-              <input type="checkbox" id="no-notify">
-              <span>No desktop notification when finished</span>
-            </label>
-            <label class="check">
-              <input type="checkbox" id="dry-run">
-              <span>Dry run — list what would be pulled, transfer nothing</span>
-            </label>
-            <label class="check danger">
-              <input type="checkbox" id="delete-after">
-              <span>
-                <b>Wring it dry — delete from device after backup</b>
-                <em>Removes each file from <code>/var/mobile/Media/DCIM/</code> on the iPhone once it's safely on disk. Bytes freed immediately. Leaves ghost entries in Photos.app you'll need to clean up (one-Touch-ID automation tracked at <a href="https://github.com/code-hartle-tech/dumpsock/issues/1" target="_blank">issue #1</a>).</em>
+          <!-- Last Backup -->
+          <div class="card last-backup-card">
+            <div class="last-backup-body">
+              <span class="muted small uppercase">Last Backup</span>
+              <div class="last-backup-time">
+                <span id="last-backup-time">No backups yet</span>
+                <span class="pill success" id="last-backup-status" hidden><span class="dot"></span>Success</span>
+              </div>
+              <div class="last-backup-filename" id="last-backup-detail">—</div>
+            </div>
+            <button class="btn ghost small" id="btn-reveal-output">View in Finder</button>
+          </div>
+
+          <!-- Pull CTA -->
+          <div class="card pull-card">
+            <div class="output-row">
+              <div class="output-label">Saves to</div>
+              <div class="output-path" id="output-path-display">—</div>
+              <button class="btn ghost small" id="btn-pick-output">Change…</button>
+            </div>
+            <button class="btn primary big block" id="btn-pull">
+              <span class="btn-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
               </span>
-            </label>
+              Back Up Now
+            </button>
+            <div class="cta-or">or <a href="#" data-tab-target="compare">Compare &amp; Merge</a></div>
+          </div>
+        </section>
+
+        <!-- ══════════════════════════ COMPARE ══════════════════════════ -->
+        <section class="tab" data-tab="compare" hidden>
+          <h1 class="tab-title">Compare &amp; Merge</h1>
+          <p class="tab-subtitle">Compare local device vs backup and merge changes</p>
+
+          <div class="compare-toolbar">
+            <div class="compare-source">
+              <span class="ico">📱</span>
+              <div>
+                <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--dark-gray);font-weight:700;">Source (Device)</div>
+                <div id="compare-source-name">—</div>
+              </div>
+            </div>
+            <span class="compare-arrow">⇄</span>
+            <div class="compare-source">
+              <span class="ico">📁</span>
+              <div>
+                <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--dark-gray);font-weight:700;">Destination (Backup)</div>
+                <div id="compare-dest-name">—</div>
+              </div>
+            </div>
           </div>
 
-          <div class="card about-card">
-            <div class="card-head"><h3>About DumpSock</h3></div>
-            <div class="about-row"><span class="muted">Version</span><b id="version-about">dev</b></div>
-            <div class="about-row"><span class="muted">Platform</span><b id="platform-about">—</b></div>
-            <div class="about-row"><span class="muted">Maker</span><b>HARTLE.TECH</b></div>
-            <div class="about-row"><span class="muted">Contact</span><a href="mailto:contact@hartle.tech">contact@hartle.tech</a></div>
-            <div class="about-row"><span class="muted">Telemetry</span><b>None. Ever.</b></div>
+          <div class="compare-filters">
+            <button class="filter-pill active" data-filter="all">All <span class="count">(1,242)</span></button>
+            <button class="filter-pill" data-filter="device">New in Device <span class="count">(324)</span></button>
+            <button class="filter-pill" data-filter="backup">New in Backup <span class="count">(187)</span></button>
+            <button class="filter-pill" data-filter="different">Different <span class="count">(56)</span></button>
           </div>
-        </div>
-      </section>
 
+          <div class="compare-grid">
+            <div class="compare-column">
+              <div class="compare-col-head">From Device</div>
+              <div class="compare-col-meta" id="compare-device-meta">625 items · 96.3 GB</div>
+              <div class="compare-list">
+                <div class="compare-row">
+                  <div class="compare-tile photos">📷</div>
+                  <div class="compare-meta">
+                    <div class="compare-name">Photos</div>
+                    <div class="compare-detail">312 items · 48.6 GB</div>
+                  </div>
+                  <span class="compare-chev">›</span>
+                </div>
+                <div class="compare-row">
+                  <div class="compare-tile videos">🎬</div>
+                  <div class="compare-meta">
+                    <div class="compare-name">Videos</div>
+                    <div class="compare-detail">128 items · 33.2 GB</div>
+                  </div>
+                  <span class="compare-chev">›</span>
+                </div>
+                <div class="compare-row">
+                  <div class="compare-tile live">⊙</div>
+                  <div class="compare-meta">
+                    <div class="compare-name">Live Photos</div>
+                    <div class="compare-detail">45 items · 6.1 GB</div>
+                  </div>
+                  <span class="compare-chev">›</span>
+                </div>
+                <div class="compare-row">
+                  <div class="compare-tile screenshots">▢</div>
+                  <div class="compare-meta">
+                    <div class="compare-name">Screenshots</div>
+                    <div class="compare-detail">80 items · 1.3 GB</div>
+                  </div>
+                  <span class="compare-chev">›</span>
+                </div>
+                <div class="compare-row">
+                  <div class="compare-tile documents">📄</div>
+                  <div class="compare-meta">
+                    <div class="compare-name">Documents</div>
+                    <div class="compare-detail">36 items · 1.1 GB</div>
+                  </div>
+                  <span class="compare-chev">›</span>
+                </div>
+                <div class="compare-row">
+                  <div class="compare-tile other">⋯</div>
+                  <div class="compare-meta">
+                    <div class="compare-name">Other</div>
+                    <div class="compare-detail">24 items · 6.0 GB</div>
+                  </div>
+                  <span class="compare-chev">›</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="compare-middle">
+              <button class="compare-arrow-btn" title="Copy to backup">»</button>
+              <button class="compare-arrow-btn" title="Copy to device">«</button>
+              <button class="compare-arrow-btn" title="Compare">=</button>
+            </div>
+
+            <div class="compare-column">
+              <div class="compare-col-head">From Backup</div>
+              <div class="compare-col-meta" id="compare-backup-meta">617 items · 93.9 GB</div>
+              <div class="compare-list">
+                <div class="compare-row">
+                  <div class="compare-tile photos">📷</div>
+                  <div class="compare-meta">
+                    <div class="compare-name">Photos</div>
+                    <div class="compare-detail">298 items · 45.1 GB</div>
+                  </div>
+                  <span class="compare-chev">›</span>
+                </div>
+                <div class="compare-row">
+                  <div class="compare-tile videos">🎬</div>
+                  <div class="compare-meta">
+                    <div class="compare-name">Videos</div>
+                    <div class="compare-detail">131 items · 34.3 GB</div>
+                  </div>
+                  <span class="compare-chev">›</span>
+                </div>
+                <div class="compare-row">
+                  <div class="compare-tile live">⊙</div>
+                  <div class="compare-meta">
+                    <div class="compare-name">Live Photos</div>
+                    <div class="compare-detail">46 items · 6.0 GB</div>
+                  </div>
+                  <span class="compare-chev">›</span>
+                </div>
+                <div class="compare-row">
+                  <div class="compare-tile screenshots">▢</div>
+                  <div class="compare-meta">
+                    <div class="compare-name">Screenshots</div>
+                    <div class="compare-detail">77 items · 1.2 GB</div>
+                  </div>
+                  <span class="compare-chev">›</span>
+                </div>
+                <div class="compare-row">
+                  <div class="compare-tile documents">📄</div>
+                  <div class="compare-meta">
+                    <div class="compare-name">Documents</div>
+                    <div class="compare-detail">38 items · 1.2 GB</div>
+                  </div>
+                  <span class="compare-chev">›</span>
+                </div>
+                <div class="compare-row">
+                  <div class="compare-tile other">⋯</div>
+                  <div class="compare-meta">
+                    <div class="compare-name">Other</div>
+                    <div class="compare-detail">29 items · 5.9 GB</div>
+                  </div>
+                  <span class="compare-chev">›</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="compare-stats">
+            <div class="compare-stat">
+              <div class="compare-stat-value">324</div>
+              <div class="compare-stat-label">New in Device</div>
+            </div>
+            <div class="compare-stat">
+              <div class="compare-stat-value">187</div>
+              <div class="compare-stat-label">New in Backup</div>
+            </div>
+            <div class="compare-stat">
+              <div class="compare-stat-value">56</div>
+              <div class="compare-stat-label">Different</div>
+            </div>
+            <div class="compare-stat">
+              <div class="compare-stat-value">1.2 GB</div>
+              <div class="compare-stat-label">Selected</div>
+            </div>
+            <button class="btn primary">
+              <span class="btn-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+              </span>
+              Merge Selected
+            </button>
+          </div>
+
+          <p class="muted small" style="margin-top:18px;text-align:center;">
+            Compare &amp; Merge is a UI shell at this stage. Live diff against
+            destination ships at <a href="https://github.com/code-hartle-tech/dumpsock/issues/2" target="_blank">issue #2</a>.
+          </p>
+        </section>
+
+        <!-- ══════════════════════════ BACKUPS (alias of progress) ══════════════════════════ -->
+        <section class="tab" data-tab="backups" hidden>
+          <h1 class="tab-title">Backups</h1>
+          <p class="tab-subtitle">Active job and recent backup runs</p>
+          <div class="card" id="run-card">
+            <div class="progress-head">
+              <h2 id="progress-phase">No backup running.</h2>
+              <button class="btn ghost" id="btn-cancel" hidden>Cancel</button>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+            <div class="progress-counts">
+              <span><b id="count-done">0</b> / <span id="count-total">0</span></span>
+              <span class="muted" id="count-rate">—</span>
+            </div>
+            <div class="current" id="current-file">—</div>
+            <div class="stats">
+              <div><span>Pulled</span><b id="s-pulled">0</b></div>
+              <div><span>Skipped</span><b id="s-skipped">0</b></div>
+              <div><span>Suffixed</span><b id="s-suffixed">0</b></div>
+              <div><span>No date</span><b id="s-nodate">0</b></div>
+              <div><span>Errors</span><b id="s-errors">0</b></div>
+            </div>
+            <div class="done-banner" id="done-banner" hidden>
+              <div class="done-dot" id="done-dot"></div>
+              <div class="done-summary" id="done-summary">Done.</div>
+              <div class="done-hint" id="done-hint" hidden>
+                <p><b>About the ghosts in Photos.app:</b> the bytes are off your phone, but Photos.app still has database entries that point to the now-missing files. They show up as photos with a small <b>!</b> badge and "unable to load higher quality version".</p>
+                <p>To clean them up: open <b>Photos &gt; Library &gt; All Photos</b> on your iPhone &gt; tap any ghost &gt; <b>Select &gt; Select All &gt; Trash</b> &gt; then open <b>Albums &gt; Recently Deleted &gt; Select &gt; Delete All</b>. Two steps. Automation tracked at <a href="https://github.com/code-hartle-tech/dumpsock/issues/1" target="_blank">issue #1</a>.</p>
+                <p class="muted small">FYI: iPhone storage takes a few minutes to fully reflect freed bytes after a large dump — that's iOS lazily reindexing.</p>
+              </div>
+              <div class="done-actions">
+                <button class="btn primary" id="btn-reveal">Open the folder</button>
+                <button class="btn ghost" id="btn-again">Dump again</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ══════════════════════════ LOGS / JOB HISTORY ══════════════════════════ -->
+        <section class="tab" data-tab="logs" hidden>
+          <h1 class="tab-title">Logs / Job History</h1>
+          <p class="tab-subtitle">Track jobs, view logs, and export reports</p>
+
+          <div class="card" style="padding:0;overflow:hidden;">
+            <div class="logs-tabs">
+              <button class="logs-tab active" data-logs-tab="history">Job History</button>
+              <button class="logs-tab" data-logs-tab="live">Live Log</button>
+              <div class="spacer"></div>
+              <button class="btn ghost small" id="btn-clear-log" style="margin: 6px 14px;">Clear</button>
+            </div>
+            <div data-logs-pane="history">
+              <table class="jobs-table">
+                <thead>
+                  <tr>
+                    <th>Job</th>
+                    <th>Status</th>
+                    <th>Date &amp; Time</th>
+                    <th style="text-align:right;">Size</th>
+                  </tr>
+                </thead>
+                <tbody id="jobs-table-body">
+                  <tr>
+                    <td colspan="4" style="text-align:center;padding:32px;color:var(--dark-gray);">No backups yet — run one to start a history.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div data-logs-pane="live" hidden style="padding:20px;">
+              <div class="log-output-head">
+                <div class="log-output-title">Log Output</div>
+                <button class="btn ghost small" id="btn-copy-log">Copy</button>
+              </div>
+              <pre class="log-output" id="log">No log yet. Run a backup to see live output.</pre>
+            </div>
+          </div>
+
+          <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+            <button class="btn ghost" id="btn-export-log">
+              <span class="btn-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              </span>
+              Export Log…
+            </button>
+          </div>
+        </section>
+
+        <!-- ══════════════════════════ SETTINGS ══════════════════════════ -->
+        <section class="tab" data-tab="settings" hidden>
+          <h1 class="tab-title">Settings</h1>
+          <p class="tab-subtitle">How DumpSock backs up + how it behaves</p>
+
+          <div class="settings-grid">
+            <div class="card">
+              <div class="card-head"><h3>Output</h3></div>
+              <label class="field">
+                <span class="field-label">Where should we stash it?</span>
+                <div class="field-row">
+                  <input type="text" id="output-path" placeholder="Choose a folder…" readonly>
+                  <button class="btn" id="btn-pick-output-settings">Choose…</button>
+                </div>
+              </label>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><h3>Date filter</h3></div>
+              <div class="settings-row">
+                <label class="field flex-1">
+                  <span class="field-label">Only files from</span>
+                  <input type="date" id="since" placeholder="YYYY-MM-DD">
+                </label>
+                <label class="field flex-1">
+                  <span class="field-label">Only files until</span>
+                  <input type="date" id="until" placeholder="YYYY-MM-DD">
+                </label>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><h3>Behavior</h3></div>
+              <label class="check">
+                <input type="checkbox" id="no-mtime">
+                <span>Don't set file mtime to capture date</span>
+              </label>
+              <label class="check">
+                <input type="checkbox" id="no-notify">
+                <span>No desktop notification when finished</span>
+              </label>
+              <label class="check">
+                <input type="checkbox" id="dry-run">
+                <span>Dry run — list what would be pulled, transfer nothing</span>
+              </label>
+              <label class="check danger">
+                <input type="checkbox" id="delete-after">
+                <span>
+                  <b>Wring it dry — delete from device after backup</b>
+                  <em>Removes each file from <code>/var/mobile/Media/DCIM/</code> on the iPhone once it's safely on disk. Bytes freed immediately. Leaves ghost entries in Photos.app you'll need to clean up (one-Touch-ID automation tracked at <a href="https://github.com/code-hartle-tech/dumpsock/issues/1" target="_blank">issue #1</a>).</em>
+                </span>
+              </label>
+            </div>
+
+            <div class="card about-card">
+              <div class="card-head"><h3>About DumpSock</h3></div>
+              <div class="about-row"><span class="muted">Version</span><b id="version-about">dev</b></div>
+              <div class="about-row"><span class="muted">Platform</span><b id="platform-about">—</b></div>
+              <div class="about-row"><span class="muted">Maker</span><b>HARTLE.TECH</b></div>
+              <div class="about-row"><span class="muted">Contact</span><a href="mailto:contact@hartle.tech">contact@hartle.tech</a></div>
+              <div class="about-row"><span class="muted">Telemetry</span><b>None. Ever.</b></div>
+            </div>
+          </div>
+        </section>
+
+      </div>
     </main>
   </div>
 
-  <!-- ▼ toast / modal ▼ -->
+  <!-- Toast + modal -->
   <div class="toast" id="toast" hidden></div>
 
   <div class="modal-veil" id="delete-confirm" hidden>

@@ -32,11 +32,12 @@ func main() {
 
 	err := wails.Run(&options.App{
 		Title:             "DumpSock",
-		Width:             820,
-		Height:            600,
-		MinWidth:          640,
-		MinHeight:         520,
-		BackgroundColour:  &options.RGBA{R: 250, G: 250, B: 247, A: 255}, // #FAFAF7 v2 light bg
+		Width:             1440,
+		Height:            900,
+		MinWidth:          1000,
+		MinHeight:         640,
+		WindowStartState:  options.Maximised,
+		BackgroundColour:  &options.RGBA{R: 247, G: 248, B: 250, A: 255}, // #F7F8FA subtle surface
 		DisableResize:     false,
 		Fullscreen:        false,
 		HideWindowOnClose: false,
