@@ -10,240 +10,327 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body data-tab="dashboard">
-  <header class="titlebar" data-drag>
-    <div class="brand">
-      <img class="brandmark" src="dumpsock-mascot.png" alt="DumpSock mascot">
-      <div class="brandtext">
-        <div class="wordmark">Dump<span class="red">Sock</span> <span class="version-pill" id="version">dev</span></div>
-        <div class="brandtag">Local. Private. All Yours.</div>
-      </div>
-    </div>
-    <div class="pills">
+
+  <!-- ════════════════════════════════════════════════════════════════
+       WINDOW CHROME — short draggable strip at the top. Traffic-light
+       buttons live HERE so nothing important hides under them. The
+       mockup shows the same pattern: a window-chrome bar on top, then
+       sidebar + content below.
+       ════════════════════════════════════════════════════════════════ -->
+  <header class="chrome" data-drag>
+    <div class="chrome-title">DumpSock v2</div>
+    <div class="chrome-right">
       <span class="pill">100% Local</span>
       <span class="pill">No Cloud</span>
-      <span class="pill">Your Data Stays Yours</span>
     </div>
   </header>
 
-  <nav class="tabs" role="tablist">
-    <button class="tab-btn" data-tab-target="dashboard" role="tab" aria-selected="true">Dashboard</button>
-    <button class="tab-btn" data-tab-target="compare" role="tab">Compare</button>
-    <button class="tab-btn" data-tab-target="progress" role="tab">Backup Progress</button>
-    <button class="tab-btn" data-tab-target="settings" role="tab">Settings</button>
-  </nav>
+  <div class="layout">
 
-  <main>
-    <!-- ════════════════════════════════════════════════════════════════
-         DASHBOARD TAB
-         ════════════════════════════════════════════════════════════════ -->
-    <section class="tab" data-tab="dashboard">
-      <div class="dashboard-grid">
-        <!-- ── device card ── -->
-        <div class="card device-card">
+    <!-- ════════════════════════════════════════════════════════════
+         SIDEBAR — brand at top, nav, bottom status pill
+         ════════════════════════════════════════════════════════════ -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img class="brandmark" src="dumpsock-mascot.png" alt="DumpSock mascot">
+        <div>
+          <div class="wordmark">Dump<span class="red">Sock</span></div>
+          <div class="brandtag">Local. Private. All Yours.</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav" role="tablist">
+        <button class="nav-item" data-tab-target="dashboard" role="tab">
+          <span class="nav-icon">▦</span><span>Dashboard</span>
+        </button>
+        <button class="nav-item" data-tab-target="compare" role="tab">
+          <span class="nav-icon">⇄</span><span>Compare &amp; Merge</span>
+        </button>
+        <button class="nav-item" data-tab-target="progress" role="tab">
+          <span class="nav-icon">↓</span><span>Backup Progress</span>
+        </button>
+        <button class="nav-item" data-tab-target="logs" role="tab">
+          <span class="nav-icon">≡</span><span>Logs</span>
+        </button>
+        <button class="nav-item" data-tab-target="settings" role="tab">
+          <span class="nav-icon">⚙</span><span>Settings</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <a class="sidebar-link" href="https://github.com/code-hartle-tech/dumpsock" target="_blank">
+          <span class="nav-icon">?</span><span>Help &amp; Docs</span>
+        </a>
+        <button class="sidebar-link" data-tab-target="settings">
+          <span class="nav-icon">i</span><span>About DumpSock</span>
+        </button>
+        <div class="status-pill">
+          <span class="dot ok"></span>
+          <div class="status-text">
+            <div><b>All Systems Go</b></div>
+            <div class="status-version" id="version">dev</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ════════════════════════════════════════════════════════════
+         CONTENT AREA — switches by [data-tab]
+         ════════════════════════════════════════════════════════════ -->
+    <main class="content">
+
+      <!-- ── DASHBOARD ─────────────────────────────────────────── -->
+      <section class="tab" data-tab="dashboard">
+        <h1 class="tab-title">Dashboard <span class="tab-subtitle">overview, device status, and quick actions</span></h1>
+
+        <!-- Connected Device -->
+        <div class="card">
           <div class="card-head">
-            <h3>Device</h3>
+            <h3>Connected Device</h3>
             <button class="btn ghost small" id="btn-rescan">Rescan</button>
           </div>
           <div id="device-card-body">
-            <!-- state: no device -->
             <div class="device-empty" id="device-empty">
               <img class="mascot-sm" src="dumpsock-mascot.png" alt="">
-              <div class="device-empty-text">
+              <div>
                 <div class="device-empty-title">Looking for a phone…</div>
                 <div class="muted">Plug an iPhone in over USB and unlock it. Tap <b>Trust</b> if asked.</div>
               </div>
             </div>
-            <!-- state: connected -->
             <div class="device-row" id="device-row" hidden>
               <div class="device-icon">📱</div>
-              <div>
+              <div class="device-info">
                 <div class="device-name" id="device-name">—</div>
                 <div class="device-spec" id="device-spec">—</div>
+              </div>
+              <div class="device-side">
+                <div class="device-battery">
+                  <span class="pill muted small" id="device-storage-pill">—</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- ── storage gauge ── -->
-        <div class="card gauge-card">
+        <!-- Storage Overview -->
+        <div class="card">
           <div class="card-head">
-            <h3>iPhone storage</h3>
+            <h3>Storage Overview</h3>
             <span class="muted small" id="gauge-state">—</span>
           </div>
-          <div class="gauge-wrap">
-            <svg class="gauge" viewBox="0 0 200 200" id="gauge-svg" aria-hidden="true">
-              <circle class="gauge-track" cx="100" cy="100" r="84" fill="none" stroke-width="20"/>
-              <circle class="gauge-fill" cx="100" cy="100" r="84" fill="none" stroke-width="20"
-                      stroke-dasharray="0 527.79" transform="rotate(-90 100 100)" id="gauge-fill-circle"/>
-            </svg>
-            <div class="gauge-center">
-              <div class="gauge-percent" id="gauge-percent">—</div>
-              <div class="gauge-label" id="gauge-label">connect a phone</div>
+          <div class="storage-row">
+            <div class="donut-wrap">
+              <svg class="donut" viewBox="0 0 200 200" id="donut-svg" aria-hidden="true">
+                <circle cx="100" cy="100" r="78" fill="none" stroke="#F2F2F4" stroke-width="28"/>
+                <circle cx="100" cy="100" r="78" fill="none" id="donut-used"
+                        stroke="#E62A28" stroke-width="28"
+                        stroke-dasharray="0 489.84"
+                        transform="rotate(-90 100 100)"
+                        stroke-linecap="butt"/>
+              </svg>
+              <div class="donut-center">
+                <div class="donut-value" id="donut-value">—</div>
+                <div class="donut-label" id="donut-label">no device</div>
+              </div>
             </div>
-          </div>
-          <div class="gauge-stats">
-            <div><span>Used</span><b id="gauge-used">—</b></div>
-            <div><span>Free</span><b id="gauge-free">—</b></div>
-            <div><span>Total</span><b id="gauge-total">—</b></div>
+            <div class="storage-breakdown">
+              <div class="storage-row-item">
+                <span class="legend-dot used"></span>
+                <span class="legend-label">Used</span>
+                <span class="legend-value" id="storage-used">—</span>
+              </div>
+              <div class="storage-row-item">
+                <span class="legend-dot free"></span>
+                <span class="legend-label">Free</span>
+                <span class="legend-value" id="storage-free">—</span>
+              </div>
+              <div class="storage-row-item">
+                <span class="legend-dot total"></span>
+                <span class="legend-label">Total</span>
+                <span class="legend-value" id="storage-total">—</span>
+              </div>
+              <div class="storage-note muted small">
+                AFC reports the iPhone's filesystem totals. Categorical
+                breakdown (Photos / Videos / Apps / Other) needs Photos.app
+                stats — coming in a follow-up.
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- ── pull CTA ── -->
-        <div class="card pull-card">
-          <div class="pull-head">
-            <h2>Ready to dump?</h2>
-            <p class="muted">We'll copy every photo and video off the phone into a date-sorted folder on your disk.</p>
+        <!-- Last Backup -->
+        <div class="card last-backup-card">
+          <div>
+            <div class="muted small uppercase">Last Backup</div>
+            <div class="last-backup-time" id="last-backup-time">No backups yet</div>
+            <div class="muted small" id="last-backup-detail">—</div>
           </div>
+          <button class="btn ghost small" id="btn-reveal-output">View in Finder</button>
+        </div>
+
+        <!-- Pull CTA -->
+        <div class="card pull-card">
           <div class="output-row">
             <div class="output-label">Saves to</div>
             <div class="output-path" id="output-path-display">—</div>
             <button class="btn ghost small" id="btn-pick-output">Change…</button>
           </div>
-          <button class="btn primary big" id="btn-pull">Dump it &amp; back it up</button>
+          <button class="btn primary big block" id="btn-pull">
+            <span class="btn-icon">↓</span> Back Up Now
+          </button>
+          <div class="cta-or muted small">or <a href="#" data-tab-target="compare">Compare &amp; Merge</a></div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- ════════════════════════════════════════════════════════════════
-         COMPARE TAB
-         ════════════════════════════════════════════════════════════════ -->
-    <section class="tab" data-tab="compare" hidden>
-      <div class="card center coming-soon">
-        <img class="mascot-md" src="dumpsock-mascot.png" alt="">
-        <h2>Compare &amp; Merge — coming soon</h2>
-        <p class="muted">Side-by-side: iPhone vs the folder on your disk. See what's only on the phone, only on disk, or in both. Bulk select + actions.</p>
-        <p class="muted small">Tracked as <a href="https://github.com/code-hartle-tech/dumpsock/issues/2" target="_blank">issue #2</a> on the project board.</p>
-      </div>
-    </section>
+      <!-- ── COMPARE ──────────────────────────────────────────── -->
+      <section class="tab" data-tab="compare" hidden>
+        <h1 class="tab-title">Compare &amp; Merge <span class="tab-subtitle">local device vs backup, merge changes</span></h1>
+        <div class="card center coming-soon">
+          <img class="mascot-md" src="dumpsock-mascot.png" alt="">
+          <h2>Compare &amp; Merge — coming soon</h2>
+          <p class="muted">Side-by-side: iPhone vs the folder on your disk. See what's only on the phone, only on disk, or in both. Bulk select + actions.</p>
+          <p class="muted small">Tracked as <a href="https://github.com/code-hartle-tech/dumpsock/issues/2" target="_blank">issue #2</a>.</p>
+        </div>
+      </section>
 
-    <!-- ════════════════════════════════════════════════════════════════
-         PROGRESS TAB — live pull / done banner
-         ════════════════════════════════════════════════════════════════ -->
-    <section class="tab" data-tab="progress" hidden>
-      <div class="card" id="run-card">
-        <div class="progress-head">
-          <h2 id="progress-phase">No backup running.</h2>
-          <button class="btn ghost" id="btn-cancel" hidden>Cancel</button>
-        </div>
-        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
-        <div class="progress-counts">
-          <span><b id="count-done">0</b> / <span id="count-total">0</span></span>
-          <span class="muted" id="count-rate">—</span>
-        </div>
-        <div class="current" id="current-file">—</div>
-        <div class="stats">
-          <div><span>Pulled</span><b id="s-pulled">0</b></div>
-          <div><span>Skipped</span><b id="s-skipped">0</b></div>
-          <div><span>Suffixed</span><b id="s-suffixed">0</b></div>
-          <div><span>No date</span><b id="s-nodate">0</b></div>
-          <div><span>Errors</span><b id="s-errors">0</b></div>
-        </div>
-        <div class="done-banner" id="done-banner" hidden>
-          <div class="done-dot" id="done-dot"></div>
-          <div class="done-summary" id="done-summary">Done.</div>
-          <div class="done-hint" id="done-hint" hidden>
-            <p><b>About the ghosts in Photos.app:</b> the bytes are off your phone, but Photos.app still has database entries that point to the now-missing files. They show up as photos with a small <b>!</b> badge and "unable to load higher quality version".</p>
-            <p>To clean them up: open <b>Photos &gt; Library &gt; All Photos</b> on your iPhone &gt; tap any ghost &gt; <b>Select &gt; Select All</b> &gt; Trash &gt; then open <b>Albums &gt; Recently Deleted &gt; Select &gt; Delete All</b>. Yes, it's two steps. We're working on automating it (see <a href="https://github.com/code-hartle-tech/dumpsock/issues/1" target="_blank">issue #1</a> — one Touch ID on the Mac).</p>
+      <!-- ── BACKUP PROGRESS ──────────────────────────────────── -->
+      <section class="tab" data-tab="progress" hidden>
+        <h1 class="tab-title">Backup Progress <span class="tab-subtitle">live job + history</span></h1>
+        <div class="card" id="run-card">
+          <div class="progress-head">
+            <h2 id="progress-phase">No backup running.</h2>
+            <button class="btn ghost" id="btn-cancel" hidden>Cancel</button>
           </div>
-          <div class="done-actions">
-            <button class="btn primary" id="btn-reveal">Open the folder</button>
-            <button class="btn ghost" id="btn-again">Dump again</button>
+          <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+          <div class="progress-counts">
+            <span><b id="count-done">0</b> / <span id="count-total">0</span></span>
+            <span class="muted" id="count-rate">—</span>
           </div>
-        </div>
-      </div>
-      <details class="log">
-        <summary>Log</summary>
-        <pre id="log"></pre>
-      </details>
-    </section>
-
-    <!-- ════════════════════════════════════════════════════════════════
-         SETTINGS TAB
-         ════════════════════════════════════════════════════════════════ -->
-    <section class="tab" data-tab="settings" hidden>
-      <div class="settings-grid">
-        <div class="card">
-          <div class="card-head"><h3>Output</h3></div>
-          <label class="field">
-            <span class="field-label">Where should we stash it?</span>
-            <div class="field-row">
-              <input type="text" id="output-path" placeholder="Choose a folder…" readonly>
-              <button class="btn" id="btn-pick-output-settings">Choose…</button>
+          <div class="current" id="current-file">—</div>
+          <div class="stats">
+            <div><span>Pulled</span><b id="s-pulled">0</b></div>
+            <div><span>Skipped</span><b id="s-skipped">0</b></div>
+            <div><span>Suffixed</span><b id="s-suffixed">0</b></div>
+            <div><span>No date</span><b id="s-nodate">0</b></div>
+            <div><span>Errors</span><b id="s-errors">0</b></div>
+          </div>
+          <div class="done-banner" id="done-banner" hidden>
+            <div class="done-dot" id="done-dot"></div>
+            <div class="done-summary" id="done-summary">Done.</div>
+            <div class="done-hint" id="done-hint" hidden>
+              <p><b>About the ghosts in Photos.app:</b> the bytes are off your phone, but Photos.app still has database entries that point to the now-missing files. They show up as photos with a small <b>!</b> badge and "unable to load higher quality version".</p>
+              <p>To clean them up: open <b>Photos &gt; Library &gt; All Photos</b> on your iPhone &gt; tap any ghost &gt; <b>Select &gt; Select All &gt; Trash</b> &gt; then open <b>Albums &gt; Recently Deleted &gt; Select &gt; Delete All</b>. Two steps. We're working on automating it (<a href="https://github.com/code-hartle-tech/dumpsock/issues/1" target="_blank">issue #1</a> — one Touch ID on the Mac).</p>
+              <p class="muted small">FYI: iPhone storage takes a few minutes to fully reflect freed bytes after a large dump — that's iOS lazily reindexing.</p>
             </div>
-          </label>
-        </div>
-
-        <div class="card">
-          <div class="card-head"><h3>Date filter</h3></div>
-          <div class="settings-row">
-            <label class="field flex-1">
-              <span class="field-label">Only files from</span>
-              <input type="date" id="since" placeholder="YYYY-MM-DD">
-            </label>
-            <label class="field flex-1">
-              <span class="field-label">Only files until</span>
-              <input type="date" id="until" placeholder="YYYY-MM-DD">
-            </label>
+            <div class="done-actions">
+              <button class="btn primary" id="btn-reveal">Open the folder</button>
+              <button class="btn ghost" id="btn-again">Dump again</button>
+            </div>
           </div>
         </div>
+      </section>
 
+      <!-- ── LOGS ─────────────────────────────────────────────── -->
+      <section class="tab" data-tab="logs" hidden>
+        <h1 class="tab-title">Logs <span class="tab-subtitle">live log + job history</span></h1>
         <div class="card">
-          <div class="card-head"><h3>Behavior</h3></div>
-          <label class="check">
-            <input type="checkbox" id="no-mtime">
-            <span>Don't set file mtime to capture date</span>
-          </label>
-          <label class="check">
-            <input type="checkbox" id="no-notify">
-            <span>No desktop notification when finished</span>
-          </label>
-          <label class="check">
-            <input type="checkbox" id="dry-run">
-            <span>Dry run — list what would be pulled, transfer nothing</span>
-          </label>
-          <label class="check danger">
-            <input type="checkbox" id="delete-after">
-            <span>
-              <b>Wring it dry — delete from device after backup</b>
-              <em>Removes each file from <code>/var/mobile/Media/DCIM/</code> on the iPhone once it's safely on disk. Bytes freed immediately. Leaves "ghost" entries in Photos.app that you'll see flagged with "unable to load higher quality" — clean those up by selecting them in Photos.app and deleting (we're automating that in <a href="https://github.com/code-hartle-tech/dumpsock/issues/1" target="_blank">issue #1</a>).</em>
-            </span>
-          </label>
+          <div class="card-head">
+            <h3>Live Log</h3>
+            <button class="btn ghost small" id="btn-clear-log">Clear</button>
+          </div>
+          <pre class="log-output" id="log">No log yet. Run a backup to see live output.</pre>
         </div>
+      </section>
 
-        <div class="card about-card">
-          <div class="card-head"><h3>About</h3></div>
-          <div class="about-row"><span class="muted">DumpSock</span><b id="version-about">dev</b></div>
-          <div class="about-row"><span class="muted">Platform</span><b id="platform-about">—</b></div>
-          <div class="about-row"><span class="muted">Maker</span><b>HARTLE.TECH</b></div>
-          <div class="about-row"><span class="muted">Contact</span><a href="mailto:contact@hartle.tech">contact@hartle.tech</a></div>
-          <div class="about-row"><span class="muted">Telemetry</span><b>None. Ever.</b></div>
+      <!-- ── SETTINGS ─────────────────────────────────────────── -->
+      <section class="tab" data-tab="settings" hidden>
+        <h1 class="tab-title">Settings <span class="tab-subtitle">how DumpSock backs up + how it behaves</span></h1>
+
+        <div class="settings-grid">
+          <div class="card">
+            <div class="card-head"><h3>Output</h3></div>
+            <label class="field">
+              <span class="field-label">Where should we stash it?</span>
+              <div class="field-row">
+                <input type="text" id="output-path" placeholder="Choose a folder…" readonly>
+                <button class="btn" id="btn-pick-output-settings">Choose…</button>
+              </div>
+            </label>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h3>Date filter</h3></div>
+            <div class="settings-row">
+              <label class="field flex-1">
+                <span class="field-label">Only files from</span>
+                <input type="date" id="since" placeholder="YYYY-MM-DD">
+              </label>
+              <label class="field flex-1">
+                <span class="field-label">Only files until</span>
+                <input type="date" id="until" placeholder="YYYY-MM-DD">
+              </label>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h3>Behavior</h3></div>
+            <label class="check">
+              <input type="checkbox" id="no-mtime">
+              <span>Don't set file mtime to capture date</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" id="no-notify">
+              <span>No desktop notification when finished</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" id="dry-run">
+              <span>Dry run — list what would be pulled, transfer nothing</span>
+            </label>
+            <label class="check danger">
+              <input type="checkbox" id="delete-after">
+              <span>
+                <b>Wring it dry — delete from device after backup</b>
+                <em>Removes each file from <code>/var/mobile/Media/DCIM/</code> on the iPhone once it's safely on disk. Bytes freed immediately. Leaves ghost entries in Photos.app you'll need to clean up (one-Touch-ID automation tracked at <a href="https://github.com/code-hartle-tech/dumpsock/issues/1" target="_blank">issue #1</a>).</em>
+              </span>
+            </label>
+          </div>
+
+          <div class="card about-card">
+            <div class="card-head"><h3>About DumpSock</h3></div>
+            <div class="about-row"><span class="muted">Version</span><b id="version-about">dev</b></div>
+            <div class="about-row"><span class="muted">Platform</span><b id="platform-about">—</b></div>
+            <div class="about-row"><span class="muted">Maker</span><b>HARTLE.TECH</b></div>
+            <div class="about-row"><span class="muted">Contact</span><a href="mailto:contact@hartle.tech">contact@hartle.tech</a></div>
+            <div class="about-row"><span class="muted">Telemetry</span><b>None. Ever.</b></div>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- ▼ toast / modal ▼ -->
-    <div class="toast" id="toast" hidden></div>
+    </main>
+  </div>
 
-    <div class="modal-veil" id="delete-confirm" hidden>
-      <div class="modal">
-        <h2>Wring it dry?</h2>
-        <p>After every file is safely written to disk, DumpSock will
-          remove it from <code>/var/mobile/Media/DCIM/</code> on your
-          iPhone over USB. Storage is freed immediately.</p>
-        <p class="muted">Only the files actually written to your chosen
-          output folder will be removed. Files that fail to transfer,
-          or whose size doesn't verify, are <b>never</b> deleted.</p>
-        <p class="muted">Photos.app will show ghost entries for the
-          removed files. To clean those: select them in Photos.app and
-          delete them, then empty Recently Deleted. We're automating
-          that one-Touch-ID flow next (see issue #1).</p>
-        <div class="actions">
-          <button class="btn ghost" id="btn-cancel-delete">Keep them</button>
-          <button class="btn primary danger" id="btn-confirm-delete">Pull, then delete</button>
-        </div>
+  <!-- ▼ toast / modal ▼ -->
+  <div class="toast" id="toast" hidden></div>
+
+  <div class="modal-veil" id="delete-confirm" hidden>
+    <div class="modal">
+      <h2>Wring it dry?</h2>
+      <p>After every file is safely written to disk, DumpSock will
+        remove it from <code>/var/mobile/Media/DCIM/</code> on your
+        iPhone over USB. Storage is freed immediately.</p>
+      <p class="muted">Only the files actually written to your chosen
+        output folder will be removed. Files that fail to transfer,
+        or whose size doesn't verify, are <b>never</b> deleted.</p>
+      <p class="muted">Photos.app will show ghost entries for the
+        removed files. To clean those up: select them in Photos.app
+        and delete them, then empty Recently Deleted. We're automating
+        that one-Touch-ID flow next (see issue #1).</p>
+      <div class="actions">
+        <button class="btn ghost" id="btn-cancel-delete">Keep them</button>
+        <button class="btn primary danger" id="btn-confirm-delete">Pull, then delete</button>
       </div>
     </div>
-  </main>
+  </div>
 
   <script src="main.js"></script>
 </body>

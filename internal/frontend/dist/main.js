@@ -8,7 +8,7 @@
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
   const body = document.body;
 
-  const GAUGE_CIRCUMFERENCE = 2 * Math.PI * 84; // matches r=84 in the SVG
+  const DONUT_CIRCUMFERENCE = 2 * Math.PI * 78; // matches r=78 in the SVG
 
   const state = {
     device: null,
@@ -119,26 +119,28 @@
   }
 
   function renderGauge(s) {
-    const fillCircle = $("#gauge-fill-circle");
+    const fillCircle = $("#donut-used");
     if (!s || !s.total_bytes) {
-      $("#gauge-percent").textContent = "—";
-      $("#gauge-label").textContent = "connect a phone";
+      $("#donut-value").textContent = "—";
+      $("#donut-label").textContent = "no device";
       $("#gauge-state").textContent = "—";
-      $("#gauge-used").textContent = "—";
-      $("#gauge-free").textContent = "—";
-      $("#gauge-total").textContent = "—";
-      fillCircle.setAttribute("stroke-dasharray", "0 " + GAUGE_CIRCUMFERENCE);
+      $("#storage-used").textContent = "—";
+      $("#storage-free").textContent = "—";
+      $("#storage-total").textContent = "—";
+      $("#device-storage-pill").textContent = "—";
+      fillCircle.setAttribute("stroke-dasharray", "0 " + DONUT_CIRCUMFERENCE);
       return;
     }
     const usedPct = s.used_bytes / s.total_bytes;
-    const arc = GAUGE_CIRCUMFERENCE * usedPct;
-    fillCircle.setAttribute("stroke-dasharray", arc + " " + GAUGE_CIRCUMFERENCE);
-    $("#gauge-percent").textContent = Math.round(usedPct * 100) + "%";
-    $("#gauge-label").textContent = "used";
+    const arc = DONUT_CIRCUMFERENCE * usedPct;
+    fillCircle.setAttribute("stroke-dasharray", arc + " " + DONUT_CIRCUMFERENCE);
+    $("#donut-value").textContent = humanBytes(s.used_bytes);
+    $("#donut-label").textContent = "of " + humanBytes(s.total_bytes);
     $("#gauge-state").textContent = humanBytes(s.free_bytes) + " free";
-    $("#gauge-used").textContent = humanBytes(s.used_bytes);
-    $("#gauge-free").textContent = humanBytes(s.free_bytes);
-    $("#gauge-total").textContent = humanBytes(s.total_bytes);
+    $("#storage-used").textContent = humanBytes(s.used_bytes) + " (" + Math.round(usedPct * 100) + "%)";
+    $("#storage-free").textContent = humanBytes(s.free_bytes) + " (" + Math.round((1 - usedPct) * 100) + "%)";
+    $("#storage-total").textContent = humanBytes(s.total_bytes);
+    $("#device-storage-pill").textContent = humanBytes(s.free_bytes) + " free of " + humanBytes(s.total_bytes);
   }
 
   // ── output picker ────────────────────────────────────────────────
@@ -297,15 +299,27 @@
   // ── bind ─────────────────────────────────────────────────────────
 
   function bindUI() {
-    // Tab nav
-    $$(".tab-btn").forEach((b) => {
-      b.addEventListener("click", () => setTab(b.dataset.tabTarget));
+    // Tab nav — sidebar items + any in-content link with data-tab-target
+    $$("[data-tab-target]").forEach((b) => {
+      b.addEventListener("click", (ev) => {
+        if (b.tagName === "A") ev.preventDefault();
+        setTab(b.dataset.tabTarget);
+      });
     });
 
     // Dashboard
     $("#btn-rescan").addEventListener("click", rescan);
     $("#btn-pick-output").addEventListener("click", pickOutput);
     $("#btn-pull").addEventListener("click", startPull);
+
+    // Last-backup card "View in Finder"
+    const btnRevealOutput = $("#btn-reveal-output");
+    if (btnRevealOutput) {
+      btnRevealOutput.addEventListener("click", async () => {
+        try { await window.go.gui.App.RevealInFinder(state.outputDir); }
+        catch (e) { toast("Couldn't open the folder: " + (e.message || e)); }
+      });
+    }
 
     // Settings
     $("#btn-pick-output-settings").addEventListener("click", pickOutput);
@@ -317,6 +331,14 @@
       catch (e) { toast("Couldn't open the folder: " + (e.message || e)); }
     });
     $("#btn-again").addEventListener("click", () => setTab("dashboard"));
+
+    // Logs
+    const btnClearLog = $("#btn-clear-log");
+    if (btnClearLog) {
+      btnClearLog.addEventListener("click", () => {
+        $("#log").textContent = "Log cleared.";
+      });
+    }
 
     // Delete confirmation modal
     $("#btn-cancel-delete").addEventListener("click", () => {
