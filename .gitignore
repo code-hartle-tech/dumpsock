@@ -37,3 +37,11 @@
 /assets/icon/*.ico
 /assets/icon/*.png
 !/assets/icon/preview.png
+
+# VitePress build artifacts + npm
+/docs/node_modules/
+/docs/external/.vitepress/dist/
+/docs/external/.vitepress/cache/
+/docs/internal/.vitepress/dist/
+/docs/internal/.vitepress/cache/
+/docs/package-lock.json
