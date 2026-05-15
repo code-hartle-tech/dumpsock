@@ -109,10 +109,17 @@ func (a *App) Info() AppInfo {
 	}
 }
 
-// GetConfig returns a snapshot of the persisted user preferences.
-// JS reads this on bootstrap to restore the last-used output folder
-// (and any future settings — schema is versioned).
+// GetConfig returns the persisted user preferences. Reads fresh from
+// disk on every call — sidesteps any race between Wails OnStartup
+// (which sets a.cfg) and the JS bootstrap that calls this. The config
+// file is tiny so the extra I/O is invisible.
 func (a *App) GetConfig() Config {
+	if c, err := loadConfig(); err == nil {
+		a.mu.Lock()
+		a.cfg = c
+		a.mu.Unlock()
+		return c
+	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.cfg

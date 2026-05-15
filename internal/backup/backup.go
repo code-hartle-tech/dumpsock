@@ -198,14 +198,25 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 
 	if opts.DryRun {
 		for _, j := range jobs {
-			fmt.Fprintf(opts.Out, "  DRY %s (%d bytes)\n", j.remote.Path, j.remote.Size)
+			fmt.Fprintf(opts.Out, "  DRY pull %s (%d bytes)\n", j.remote.Path, j.remote.Size)
+		}
+		if opts.DeleteAfter {
+			if len(pendingDeletes) == 0 {
+				fmt.Fprintln(opts.Out, "  DRY delete: nothing yet verified at destination")
+			} else {
+				fmt.Fprintf(opts.Out, "  DRY delete: would remove %d files from device\n", len(pendingDeletes))
+			}
 		}
 		return res, nil
 	}
 
-	if len(jobs) == 0 {
-		return res, nil
-	}
+	// Don't early-return when len(jobs) == 0. If everything's already
+	// pre-skipped, the worker pool loop is a no-op (the channel closes
+	// immediately) and we fall straight through to the deletion phase.
+	// Skipping the body here was the bug: pre-skipped files (already at
+	// dest) couldn't be queued for delete on subsequent runs, so users
+	// who ran a clean pull then re-ran with --delete-after saw nothing
+	// happen.
 
 	t0 := time.Now()
 	tmpRoot, err := os.MkdirTemp(filepath.Dir(opts.OutputRoot), ".dumpsock-staging-")

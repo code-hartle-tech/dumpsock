@@ -57,12 +57,13 @@
 
     if (!state.outputDir) {
       // Restore last-used path first; only fall back to the per-device
-      // default on a brand-new install.
+      // default on a brand-new install. Defensive on field name: most
+      // Wails versions honor json tags but some old paths exposed
+      // PascalCase, so try both.
       try {
         const cfg = await window.go.gui.App.GetConfig();
-        if (cfg && cfg.last_output) {
-          state.outputDir = cfg.last_output;
-        }
+        const last = cfg && (cfg.last_output || cfg.LastOutput);
+        if (last) state.outputDir = last;
       } catch {}
       if (!state.outputDir) {
         try {
