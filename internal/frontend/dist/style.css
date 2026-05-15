@@ -287,6 +287,44 @@ details.advanced[open] summary::before { content: "▾ "; }
 .stats span { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
 .stats b { font-size: 16px; font-weight: 600; }
 
+.done-banner {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  gap: 4px 12px;
+  align-items: center;
+}
+/* Hidden-attribute reset — author CSS otherwise wins. */
+.done-banner[hidden] { display: none; }
+
+.done-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 0 3px rgba(93, 211, 158, 0.18);
+  grid-row: 1;
+}
+.done-summary {
+  grid-row: 1;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--fg);
+}
+.done-banner .actions {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+  justify-content: flex-start;
+}
+.done-banner.error .done-dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.18);
+}
+.done-banner.error .done-summary { color: var(--accent); }
+
 details.log {
   background: var(--bg-elev);
   border: 1px solid var(--line);
@@ -402,7 +440,6 @@ details.log pre {
 body[data-screen="boot"]    #screen-boot,
 body[data-screen="empty"]   #screen-empty,
 body[data-screen="config"]  #screen-config,
-body[data-screen="pulling"] #screen-pulling,
-body[data-screen="done"]    #screen-done {
+body[data-screen="pulling"] #screen-pulling {
   display: block;
 }

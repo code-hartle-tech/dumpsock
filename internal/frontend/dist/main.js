@@ -56,9 +56,19 @@
        picked.connection_type].filter(Boolean).join(" · ");
 
     if (!state.outputDir) {
+      // Restore last-used path first; only fall back to the per-device
+      // default on a brand-new install.
       try {
-        state.outputDir = await window.go.gui.App.DefaultOutputFor(picked.name || "iPhone");
-      } catch { state.outputDir = ""; }
+        const cfg = await window.go.gui.App.GetConfig();
+        if (cfg && cfg.last_output) {
+          state.outputDir = cfg.last_output;
+        }
+      } catch {}
+      if (!state.outputDir) {
+        try {
+          state.outputDir = await window.go.gui.App.DefaultOutputFor(picked.name || "iPhone");
+        } catch { state.outputDir = ""; }
+      }
       $("#output-path").value = state.outputDir;
     }
     show("config");
@@ -70,6 +80,12 @@
       if (dir) {
         state.outputDir = dir;
         $("#output-path").value = dir;
+        // Persist so next launch restores this folder.
+        try {
+          await window.go.gui.App.SaveLastOutput(dir);
+        } catch (e) {
+          console.warn("SaveLastOutput failed:", e);
+        }
       }
     } catch (e) {
       toast("Couldn't open the folder picker: " + (e.message || e));
@@ -107,6 +123,9 @@
       $("#s-" + k).textContent = "0";
     });
     $("#log").textContent = "";
+    $("#done-banner").hidden = true;
+    $("#done-banner").classList.remove("error");
+    $("#btn-cancel").hidden = false;
   }
 
   async function startPull() {
@@ -182,12 +201,19 @@
   }
 
   function onDone(payload) {
+    // Stay on the pulling screen; morph it into a done state in place.
+    $("#btn-cancel").hidden = true;
+    $("#done-banner").hidden = false;
     if (payload.error) {
-      $("#done-title").textContent = "Stopped";
+      $("#progress-phase").textContent = "Stopped";
+      $("#done-banner").classList.add("error");
       $("#done-summary").textContent = payload.error;
     } else {
       const r = payload.result || {};
-      $("#done-title").textContent = "Done.";
+      $("#progress-phase").textContent = "Done";
+      $("#done-banner").classList.remove("error");
+      // Fill the progress bar; rate/current become final.
+      $("#progress-fill").style.width = "100%";
       const parts = [];
       parts.push((r.Pulled || 0) + " pulled");
       const skipped = (r.PreSkipped || 0) + (r.PostSkipped || 0);
@@ -200,7 +226,6 @@
       if (r.Errors) parts.push(r.Errors + " errors");
       $("#done-summary").textContent = parts.join(" · ");
     }
-    show("done");
   }
 
   function bindUI() {

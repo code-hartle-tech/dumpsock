@@ -30,6 +30,7 @@ type App struct {
 	mu     sync.Mutex
 	job    *jobHandle
 	jobSeq int
+	cfg    Config
 }
 
 type jobHandle struct {
@@ -41,8 +42,16 @@ type jobHandle struct {
 // NewApp constructs the App. Wails calls Startup(ctx) once the window is up.
 func NewApp() *App { return &App{} }
 
-// Startup is wired via Wails options.OnStartup.
-func (a *App) Startup(ctx context.Context) { a.ctx = ctx }
+// Startup is wired via Wails options.OnStartup. Loads persisted config
+// (best-effort — failures fall back to zero-value config, never block).
+func (a *App) Startup(ctx context.Context) {
+	a.ctx = ctx
+	if c, err := loadConfig(); err == nil {
+		a.mu.Lock()
+		a.cfg = c
+		a.mu.Unlock()
+	}
+}
 
 // -----------------------------------------------------------------------------
 // JS-visible types
@@ -98,6 +107,29 @@ func (a *App) Info() AppInfo {
 		Tagline:  branding.Tagline,
 		Platform: runtime.GOOS + "/" + runtime.GOARCH,
 	}
+}
+
+// GetConfig returns a snapshot of the persisted user preferences.
+// JS reads this on bootstrap to restore the last-used output folder
+// (and any future settings — schema is versioned).
+func (a *App) GetConfig() Config {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.cfg
+}
+
+// SaveLastOutput persists the folder the user just picked, so the next
+// app launch restores it. Best-effort: errors are logged via fmt to
+// stderr and surfaced to JS, but never block the pull flow.
+func (a *App) SaveLastOutput(path string) error {
+	a.mu.Lock()
+	a.cfg.LastOutput = path
+	c := a.cfg
+	a.mu.Unlock()
+	if err := saveConfig(c); err != nil {
+		return fmt.Errorf("could not persist last-output: %w", err)
+	}
+	return nil
 }
 
 // ListDevices enumerates iPhones reachable via usbmuxd. JS calls this on
