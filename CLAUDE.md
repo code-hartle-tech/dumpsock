@@ -18,7 +18,7 @@ A successor to `icloudpd` for the **local** path: phone-over-USB → storage med
 
 | Layer | Tool | Why |
 |---|---|---|
-| Language | **Go 1.23+** | Single static binary across darwin/linux/windows arm64+amd64. Apple-tier "just-double-click" distribution requires no runtime, no installer. |
+| Language | **Go 1.24+** | Single static binary across darwin/linux/windows arm64+amd64. Apple-tier "just-double-click" distribution requires no runtime, no installer. (Bumped from 1.23 to 1.24 when imagemeta landed; toolchain auto-downloads on first build.) |
 | iOS device | **`github.com/danielpaulus/go-ios`** (pure-Go AFC + lockdownd) | No CGo / libimobiledevice. Cross-compiles cleanly. |
 | EXIF | **`github.com/evanoberholster/imagemeta`** (HEIC/HEIF/JPG/PNG/DNG/CR2/CR3/NEF/ARW) + a hand-rolled ISO-BMFF `moov/mvhd` walker (MOV/MP4/M4V) + os.Stat mtime fallback | pure-Go, zero external dependency. Binary is fully self-contained. No `brew install exiftool` ever. |
 | CLI | **`github.com/spf13/cobra`** | Sub-commands, Apple-style minimal surface up top, advanced flags grouped. |
@@ -130,7 +130,7 @@ Dedup: name+size match anywhere under output → skip. Same name, different size
 | **Branch prefix** | `feature/* fix/* chore/* docs/* refactor/*` off `develop`. Release batches: `release/*` → `main` + tag. |
 | **Commit format** | `type(scope SXXEXX #NNN): subject` once issues exist. Pre-issue scaffold commits: `chore(scaffold): subject`. |
 | **License** | TBD — pending operator decision. No other `code-hartle-tech` repo carries a `LICENSE` file (all default to all-rights-reserved). Match that default until Phase 2 public-release time. |
-| **Min Go** | 1.23 (declared in `go.mod`). |
+| **Min Go** | 1.24 (declared in `go.mod`). |
 | **Public-facing strings** | No operator name; no `rbfghrtl@`. Help text + version-string brand line: `DumpSock — by HARTLE.TECH · contact@hartle.tech`. |
 | **CI** | GitHub Actions only. Matrix build on tag push. No external CI. |
 | **Telemetry** | None. Zero phone-home. Document this in README. |
