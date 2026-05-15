@@ -24,6 +24,7 @@ export default defineConfig({
       { text: 'Guide', link: '/guide/getting-started' },
       { text: 'Features', link: '/features/local-first' },
       { text: 'FAQ', link: '/faq' },
+      { text: 'Donate', link: '/donate' },
       { text: 'Download', link: 'https://github.com/code-hartle-tech/dumpsock/releases' },
       { text: 'Source', link: 'https://github.com/code-hartle-tech/dumpsock' },
     ],
