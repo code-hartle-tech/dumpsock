@@ -11,7 +11,7 @@ export default defineConfig({
 
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/dumpsock-mascot.svg' }],
-    ['meta', { name: 'theme-color', content: '#E74C3C' }],
+    ['meta', { name: 'theme-color', content: '#E62A28' }],
     ['meta', { property: 'og:title', content: 'DumpSock — Cloudless freedom for your iPhone' }],
     ['meta', { property: 'og:description', content: 'Plug your phone in. Wring it dry. Local-first photo and video backup from iPhone / iPad to disk. No iCloud, no account, no telemetry.' }],
   ],
