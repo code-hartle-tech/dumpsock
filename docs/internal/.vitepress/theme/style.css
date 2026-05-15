@@ -1,0 +1,96 @@
+/* DumpSock brand theme — internal wiki
+ * Mirrors external/.vitepress/theme/style.css with a thin "INTERNAL" badge
+ * on the nav so visitors know this is dev-facing content (not polished
+ * marketing). Keep the two CSS files in sync when brand tokens change. */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Serif:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --ds-red:        #E74C3C;
+  --ds-red-2:      #C0392B;
+  --ds-red-soft:   #FDEDEC;
+  --ds-ink:        #1A1A1A;
+  --ds-gray:       #A5A8AC;
+  --ds-gray-soft:  #E5E7EA;
+  --ds-sock-white: #FCFEFB;
+
+  --vp-c-brand-1:    var(--ds-red);
+  --vp-c-brand-2:    var(--ds-red-2);
+  --vp-c-brand-3:    var(--ds-red-2);
+  --vp-c-brand-soft: var(--ds-red-soft);
+
+  --vp-c-bg:         var(--ds-sock-white);
+  --vp-c-bg-alt:     #ffffff;
+  --vp-c-text-1:     var(--ds-ink);
+  --vp-c-text-2:     #4a4a4a;
+  --vp-c-divider:    var(--ds-gray-soft);
+
+  --vp-button-brand-bg:           var(--ds-red);
+  --vp-button-brand-hover-bg:     var(--ds-red-2);
+  --vp-button-brand-active-bg:    var(--ds-red-2);
+  --vp-button-brand-border:       var(--ds-red);
+  --vp-button-brand-hover-border: var(--ds-red-2);
+  --vp-button-brand-active-border: var(--ds-red-2);
+  --vp-button-brand-text:         #ffffff;
+
+  --vp-font-family-base: 'Inter', -apple-system, BlinkMacSystemFont,
+                         'Segoe UI', Roboto, sans-serif;
+  --vp-font-family-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular,
+                         Menlo, monospace;
+  --vp-font-family-heading: 'IBM Plex Serif', Georgia, serif;
+
+  --vp-home-hero-name-color: var(--ds-ink);
+}
+
+.dark {
+  --vp-c-bg:      #0F0F10;
+  --vp-c-bg-alt:  #18181B;
+  --vp-c-text-1:  #F4F5F7;
+  --vp-c-text-2:  #B5B8BD;
+  --vp-c-divider: #2A2A2D;
+}
+
+h1, h2, h3 {
+  font-family: var(--vp-font-family-heading);
+  letter-spacing: -0.01em;
+}
+
+/* "INTERNAL" badge — pinned strip above the nav so visitors know the
+ * content shape immediately. */
+.VPNav::before {
+  content: 'INTERNAL · DEV NOTES · no support / no SLA · public-but-unindexed';
+  display: block;
+  background: var(--ds-red);
+  color: white;
+  font-family: var(--vp-font-family-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 6px 12px;
+  position: relative;
+  z-index: 100;
+}
+
+/* Soft rounded cards */
+.VPFeature, .VPHomeFeatures .item {
+  border-radius: 16px;
+  border: 1px solid var(--ds-gray-soft);
+  background: var(--vp-c-bg-alt);
+}
+
+hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    var(--ds-red-soft) 20%,
+    var(--ds-red) 50%,
+    var(--ds-red-soft) 80%,
+    transparent 100%
+  );
+  opacity: 0.4;
+  margin: 2rem 0;
+}

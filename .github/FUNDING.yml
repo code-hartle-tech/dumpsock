@@ -1,0 +1,30 @@
+# DumpSock donation channels — voluntary support, no strings attached.
+# This file is rendered as a "Sponsor" button on the GitHub repo page and
+# in any issue/PR sidebar. Operator: fill in the handles below as accounts
+# are created, then commit. Each line is independent; leave entries
+# commented out (with `#`) until the account exists, so GitHub doesn't
+# render a dead link.
+
+# Native GitHub Sponsors. Requires approval (apply at github.com/sponsors).
+# Recurring + one-time. Best UX for GitHub-native users.
+# github: [hartle-tech]
+
+# Ko-fi — instant signup, no fees on one-time tips, optional monthly.
+# Popular with the indie OSS crowd, "buy me a coffee" energy.
+# ko_fi: hartle-tech
+
+# Liberapay — instant signup, no fees, EU-friendly, recurring.
+# Popular with European OSS projects (PSF, Mastodon, KeePassXC use it).
+# liberapay: hartle-tech
+
+# Buy Me a Coffee — instant signup, one-time + monthly.
+# Popular with creators; reaches a broader-than-OSS audience.
+# buy_me_a_coffee: hartletech
+
+# Open Collective — transparent fund accounting, fiscal hosting if needed.
+# Best for projects that want public visibility into how donations are spent.
+# open_collective: dumpsock
+
+# Custom — any other payment URL (Stripe, PayPal, etc.). Up to 4 entries.
+# custom:
+#   - 'https://hartle.tech/donate'

@@ -1,0 +1,30 @@
+DumpSock
+Copyright 2026 HARTLE.TECH (NIPC 518241327, Porto, Portugal)
+
+This product includes software developed at HARTLE.TECH (https://hartle.tech).
+Contact: contact@hartle.tech
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+──────────────────────────────────────────────────────────────────────────────
+
+Per the Apache License, Section 4(c):
+
+  "If the Work includes a 'NOTICE' text file as part of its distribution,
+   then any Derivative Works that You distribute must include a readable
+   copy of the attribution notices contained within such NOTICE file."
+
+If you fork, embed, repackage, or otherwise redistribute DumpSock (in source
+or binary form), you MUST preserve this NOTICE file unchanged, and surface
+the credit "DumpSock — © HARTLE.TECH" wherever you display attribution for
+third-party components (about screens, credits dialogs, package metadata).
+
+You are not required to feature the credit prominently — but you may not
+remove it.
+
+──────────────────────────────────────────────────────────────────────────────
+
+Third-party components used by DumpSock are listed in the project's go.mod
+file (Go dependencies) and the docs/external/package.json (VitePress
+dependencies for the public documentation site). Each retains its own
+license; this NOTICE applies to the DumpSock-authored code only.
