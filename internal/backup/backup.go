@@ -288,13 +288,35 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	var pullErr error
 
 	var mu sync.Mutex // protects res counter fields + ix
+	// Emit a "pulling" event right away so the GUI flips off the "Planning…"
+	// phase as soon as the first file starts downloading. Without this, a
+	// large first file (e.g. a 1.6 GB MOV) would leave the GUI stuck on
+	// "Planning…" for a minute until the first pull completes.
+	if len(jobs) > 0 {
+		opts.emit(ProgressEvent{
+			Phase:      "pulling",
+			Done:       0,
+			Total:      len(jobs),
+			Current:    jobs[0].remote.Name,
+			PreSkipped: res.PreSkipped,
+		})
+	}
 	go func() {
 		defer close(pulledCh)
-		for _, j := range jobs {
+		for i, j := range jobs {
 			if ctx.Err() != nil {
 				pullErr = ctx.Err()
 				return
 			}
+			// Emit phase update with the name of the file we're about to
+			// pull. Counter intentionally stays at i (files completed),
+			// not i+1, until the worker actually finishes processing.
+			opts.emit(ProgressEvent{
+				Phase:   "pulling",
+				Done:    i,
+				Total:   len(jobs),
+				Current: j.remote.Name,
+			})
 			staged := filepath.Join(tmpRoot, sanitizeFilename(j.remote.Name))
 			if err := cl.PullTo(j.remote.Path, staged); err != nil {
 				mu.Lock()
