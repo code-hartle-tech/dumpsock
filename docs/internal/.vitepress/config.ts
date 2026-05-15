@@ -33,7 +33,7 @@ export default defineConfig({
 
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/dumpsock-mascot.svg' }],
-    ['meta', { name: 'theme-color', content: '#E74C3C' }],
+    ['meta', { name: 'theme-color', content: '#E62A28' }],
     ['meta', { name: 'robots', content: 'noindex,nofollow' }],
   ],
 
