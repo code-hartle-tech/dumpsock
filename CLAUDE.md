@@ -20,7 +20,7 @@ A successor to `icloudpd` for the **local** path: phone-over-USB → storage med
 |---|---|---|
 | Language | **Go 1.23+** | Single static binary across darwin/linux/windows arm64+amd64. Apple-tier "just-double-click" distribution requires no runtime, no installer. |
 | iOS device | **`github.com/danielpaulus/go-ios`** (pure-Go AFC + lockdownd) | No CGo / libimobiledevice. Cross-compiles cleanly. |
-| EXIF | shell-out to **`exiftool`** in v0; later replace with `dsoprea/go-exif` for self-contained binary | exiftool is the gold-standard for HEIC/MOV/DNG metadata; embed-the-binary tradeoff acceptable for v0. Single-binary purity returns in v1. |
+| EXIF | **`github.com/evanoberholster/imagemeta`** (HEIC/HEIF/JPG/PNG/DNG/CR2/CR3/NEF/ARW) + a hand-rolled ISO-BMFF `moov/mvhd` walker (MOV/MP4/M4V) + os.Stat mtime fallback | pure-Go, zero external dependency. Binary is fully self-contained. No `brew install exiftool` ever. |
 | CLI | **`github.com/spf13/cobra`** | Sub-commands, Apple-style minimal surface up top, advanced flags grouped. |
 | GUI (future) | **Wails v2** | Single binary; Go backend + HTML/CSS frontend; native window per OS. |
 | Web UI (future) | localhost-bridge model | Browser cannot reach iPhone AFC directly. A running DumpSock process exposes a localhost API; the public page at `dumpsock.<domain>` talks to it. Phone-to-phone transfer = native mobile app, not web. |
@@ -175,7 +175,7 @@ Each phase ships its own release / batch; don't conflate them.
 - **Do not** silently overwrite files at destination. Always dedup-and-suffix or skip.
 - **Do not** mutate files on the device. (Phase 1 is read-only. Phase 1.5 may add `--delete-after`, hard-gated.)
 - **Do not** prompt for unlock / pairing on macOS via shell — pairing must happen in Finder / Settings, the binary just consumes existing pair records.
-- **Do not** embed exiftool's binary in the Go binary in v0 (license / size friction). Document the dependency. v1 swaps to a pure-Go EXIF reader.
+- **Do not** require `exiftool` (or any external binary) at runtime. EXIF reading is pure-Go via imagemeta + a built-in moov-atom walker. The bundle is a true single file.
 - **Do not** add emoji to CLI default output. Voice rule above.
 
 ---
