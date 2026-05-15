@@ -30,6 +30,26 @@ var MediaExts = map[string]bool{
 	".gif": true, ".webp": true,
 }
 
+// SidecarExts are file types we never pull but DO delete alongside their
+// media sibling when --delete-after is set. .AAE is Apple's photo-edit
+// history metadata (crops, filters, rotation); a stray .AAE without its
+// parent .HEIC/.MOV is orphan junk on the device, so we sweep it.
+var SidecarExts = map[string]bool{".aae": true}
+
+func extUnion(maps ...map[string]bool) map[string]bool {
+	out := map[string]bool{}
+	for _, m := range maps {
+		for k := range m {
+			out[k] = true
+		}
+	}
+	return out
+}
+
+func stemPath(p string) string {
+	return p[:len(p)-len(filepath.Ext(p))]
+}
+
 const noDateFolder = "0000:00:00 00:00:00"
 
 // ProgressEvent is emitted at the same moments as the CLI's progress
@@ -152,12 +172,25 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 
 	opts.emit(ProgressEvent{Phase: "walking", Message: opts.RemoteRoot})
 	fmt.Fprintf(opts.Out, "walking remote %s/ ...\n", opts.RemoteRoot)
-	files, err := cl.Walk(opts.RemoteRoot, MediaExts)
+	// Walk media + sidecars in one pass; partition below. Sidecars are
+	// only used to queue companion deletes — they're never pulled.
+	allEntries, err := cl.Walk(opts.RemoteRoot, extUnion(MediaExts, SidecarExts))
 	if err != nil {
 		return Result{}, fmt.Errorf("walk remote: %w", err)
 	}
+	var files []afc.File
+	sidecarsByStem := make(map[string]string)
+	for _, f := range allEntries {
+		ext := strings.ToLower(filepath.Ext(f.Name))
+		switch {
+		case SidecarExts[ext]:
+			sidecarsByStem[stemPath(f.Path)] = f.Path
+		case MediaExts[ext]:
+			files = append(files, f)
+		}
+	}
 	res := Result{Total: len(files)}
-	fmt.Fprintf(opts.Out, "remote media files: %d\n", res.Total)
+	fmt.Fprintf(opts.Out, "remote media files: %d (+ %d sidecars)\n", res.Total, len(sidecarsByStem))
 
 	// Pre-filter by destination dedup. Track consecutive matches for --until-found.
 	type job struct {
@@ -168,13 +201,31 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	// destination — only safe to delete from the device when --delete-after
 	// is set AND --confirm-delete is set. The CLI/GUI hard-gate that.
 	var pendingDeletes []string
+	pendingSeen := make(map[string]bool)
 	deletionsEnabled := opts.DeleteAfter && !opts.DryRun
+
+	// queueDelete adds a remote path to pendingDeletes once, plus any
+	// sidecar that shares its stem (so we don't leave orphan .AAE files
+	// littering DCIM after the media is gone). NOT thread-safe — caller
+	// holds mu when invoked from a worker goroutine; pre-filter caller
+	// is single-goroutine and needs no locking.
+	queueDelete := func(remotePath string) {
+		if pendingSeen[remotePath] {
+			return
+		}
+		pendingSeen[remotePath] = true
+		pendingDeletes = append(pendingDeletes, remotePath)
+		if sidecar, ok := sidecarsByStem[stemPath(remotePath)]; ok && !pendingSeen[sidecar] {
+			pendingSeen[sidecar] = true
+			pendingDeletes = append(pendingDeletes, sidecar)
+		}
+	}
 	consecutiveMatches := 0
 	for _, f := range files {
 		if ix.Has(f.Name, f.Size) {
 			res.PreSkipped++
 			if deletionsEnabled {
-				pendingDeletes = append(pendingDeletes, f.Path)
+				queueDelete(f.Path)
 			}
 			if opts.UntilFound > 0 {
 				consecutiveMatches++
@@ -302,9 +353,9 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 				res.PostSkipped++
 				// (name, size) match exists at destination — same content
 				// as the remote file, verified at index time. Safe to
-				// queue for device-side delete.
+				// queue for device-side delete (along with any sidecar).
 				if deletionsEnabled {
-					pendingDeletes = append(pendingDeletes, p.remote.Path)
+					queueDelete(p.remote.Path)
 				}
 				mu.Unlock()
 				_ = os.Remove(p.stagedAt)
@@ -350,7 +401,7 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 			res.Pulled++
 			ix.Add(filepath.Base(target), p.remote.Size)
 			if deletionsEnabled {
-				pendingDeletes = append(pendingDeletes, p.remote.Path)
+				queueDelete(p.remote.Path)
 			}
 			mu.Unlock()
 

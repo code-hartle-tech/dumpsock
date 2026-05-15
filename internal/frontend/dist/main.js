@@ -209,6 +209,7 @@
       $("#progress-phase").textContent = "Stopped";
       $("#done-banner").classList.add("error");
       $("#done-summary").textContent = payload.error;
+      $("#done-hint").hidden = true;
     } else {
       const r = payload.result || {};
       $("#progress-phase").textContent = "Done";
@@ -226,6 +227,9 @@
       if (r.DeleteErrors) parts.push(r.DeleteErrors + " delete errors");
       if (r.Errors) parts.push(r.Errors + " errors");
       $("#done-summary").textContent = parts.join(" · ");
+      // The "Recently Deleted" caveat is only relevant when we actually
+      // ran a deletion. Hide it on plain pulls.
+      $("#done-hint").hidden = !(r.Deleted > 0);
     }
   }
 

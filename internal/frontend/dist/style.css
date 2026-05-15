@@ -325,6 +325,19 @@ details.advanced[open] summary::before { content: "▾ "; }
 }
 .done-banner.error .done-summary { color: var(--accent); }
 
+.done-hint {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  padding: 10px 12px;
+  background: var(--bg-elev-2);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+.done-hint[hidden] { display: none; }
+.done-hint b { color: var(--fg); font-weight: 600; }
+
 details.log {
   background: var(--bg-elev);
   border: 1px solid var(--line);

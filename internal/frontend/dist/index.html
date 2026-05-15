@@ -88,7 +88,7 @@
             <input type="checkbox" id="delete-after">
             <span>
               <b>Delete from device after backup</b>
-              <em>Removes each file from the iPhone once it's safely on disk. Irreversible — there is no recycle bin on iOS.</em>
+              <em>Removes each file from /var/mobile/Media/DCIM/ on the iPhone once it's safely on disk. Storage is freed immediately. Photos.app keeps deleted items in "Recently Deleted" for 30 days — that's an iOS safety feature DumpSock cannot bypass over USB.</em>
             </span>
           </label>
         </details>
@@ -123,6 +123,12 @@
         <div class="done-banner" id="done-banner" hidden>
           <div class="done-dot" id="done-dot"></div>
           <div class="done-summary" id="done-summary">Done.</div>
+          <div class="done-hint" id="done-hint" hidden>
+            Photos.app still shows them? Open <b>Photos &gt; Albums &gt;
+            Recently Deleted</b> on your iPhone &gt; Select &gt; Delete All.
+            iOS keeps deleted media there for 30 days. We can't skip
+            that over USB — it's biometric-gated on the device.
+          </div>
           <div class="actions">
             <button class="btn primary" id="btn-reveal">Reveal in Finder</button>
             <button class="btn ghost" id="btn-again">Pull again</button>
@@ -143,11 +149,15 @@
       <div class="modal">
         <h2>Delete from the iPhone?</h2>
         <p>After every file is safely written to disk, DumpSock will
-          remove it from your iPhone over USB. This is irreversible —
-          iOS has no recycle bin.</p>
+          remove it from <code>/var/mobile/Media/DCIM/</code> on your
+          iPhone over USB. Storage is freed immediately.</p>
         <p class="muted">Only the files actually written to your chosen
           output folder will be removed. Files that fail to transfer,
           or whose size doesn't verify, are <b>never</b> deleted.</p>
+        <p class="muted">Photos.app keeps deleted items in
+          <b>Recently Deleted</b> for 30 days. That's an iOS-level
+          safety feature — neither DumpSock nor any other USB tool
+          can skip it without your tap on the phone.</p>
         <div class="actions">
           <button class="btn ghost" id="btn-cancel-delete">Don't delete</button>
           <button class="btn primary danger" id="btn-confirm-delete">Pull, then delete</button>
