@@ -1,30 +1,36 @@
 # DumpSock donation channels — voluntary support, no strings attached.
-# This file is rendered as a "Sponsor" button on the GitHub repo page and
-# in any issue/PR sidebar. Operator: fill in the handles below as accounts
-# are created, then commit. Each line is independent; leave entries
-# commented out (with `#`) until the account exists, so GitHub doesn't
-# render a dead link.
+# Renders as a "Sponsor" button on the GitHub repo page and in any
+# issue/PR sidebar. See docs/external/donate.md for the user-facing
+# explanation + tradeoffs of each service.
+#
+# Operator: each entry is commented out until the underlying account
+# exists. Uncomment ONE at a time and commit — that's the moment the
+# Sponsor button surfaces that option.
+#
+# Recommended ordering (lowest fee → highest reach):
+#   1. liberapay   — non-profit, 0% platform fee, EU-friendly recurring
+#   2. github      — GitHub Sponsors, 0% (GH covers fees); requires approval
+#                    (apply at https://github.com/sponsors — usually a few days)
+#   3. ko_fi       — instant, 0% on one-time, 5% on monthly memberships
+#   4. buy_me_a_coffee — mainstream, polished checkout, 5% + processor
+#   5. open_collective — transparent ledger; needs application to a host
+#   6. custom      — last-resort direct links (Stripe / PayPal / etc.)
 
-# Native GitHub Sponsors. Requires approval (apply at github.com/sponsors).
-# Recurring + one-time. Best UX for GitHub-native users.
-# github: [hartle-tech]
-
-# Ko-fi — instant signup, no fees on one-time tips, optional monthly.
-# Popular with the indie OSS crowd, "buy me a coffee" energy.
-# ko_fi: hartle-tech
-
-# Liberapay — instant signup, no fees, EU-friendly, recurring.
-# Popular with European OSS projects (PSF, Mastodon, KeePassXC use it).
+# ── Set up first (instant, no application, 0% fees) ──────────────────
 # liberapay: hartle-tech
 
-# Buy Me a Coffee — instant signup, one-time + monthly.
-# Popular with creators; reaches a broader-than-OSS audience.
+# ── Apply soon (no fees once approved, takes 1-7 days) ───────────────
+# github: [hartle-tech]
+
+# ── Instant (small fees) — broad reach ───────────────────────────────
+# ko_fi: hartle-tech
 # buy_me_a_coffee: hartletech
 
-# Open Collective — transparent fund accounting, fiscal hosting if needed.
-# Best for projects that want public visibility into how donations are spent.
+# ── Apply when ready (transparent fund accounting, takes weeks) ──────
 # open_collective: dumpsock
 
-# Custom — any other payment URL (Stripe, PayPal, etc.). Up to 4 entries.
+# ── Last resort / branded donate page ────────────────────────────────
+# Up to 4 entries; useful for donate.hartle.tech once that lives.
 # custom:
-#   - 'https://hartle.tech/donate'
+#   - 'https://donate.hartle.tech'
+#   - 'mailto:contact@hartle.tech?subject=DumpSock%20sponsorship'

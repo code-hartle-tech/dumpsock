@@ -1,83 +1,89 @@
 /* DumpSock brand theme — internal wiki
- * Mirrors external/.vitepress/theme/style.css with a thin "INTERNAL" badge
- * on the nav so visitors know this is dev-facing content (not polished
- * marketing). Keep the two CSS files in sync when brand tokens change. */
+ * Mirrors external/.vitepress/theme/style.css (canonical = brand_tokens.yaml).
+ * Difference: thin "INTERNAL · DEV NOTES · public-but-unindexed" strip above
+ * the nav so visitors know the content shape immediately.
+ * Keep palette + fonts in sync with external when brand changes. */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Serif:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  --ds-red:        #E74C3C;
-  --ds-red-2:      #C0392B;
-  --ds-red-soft:   #FDEDEC;
-  --ds-ink:        #1A1A1A;
-  --ds-gray:       #A5A8AC;
-  --ds-gray-soft:  #E5E7EA;
-  --ds-sock-white: #FCFEFB;
+  --ds-primary-red:   #E62A28;
+  --ds-soft-red:      #FF4444;
+  --ds-accent-pink:   #FF8A8A;
+  --ds-ink-black:     #111111;
+  --ds-charcoal:      #1F1F1F;
+  --ds-slate-gray:    #4B5563;
+  --ds-rib-gray:      #8E8E93;
+  --ds-sock-shade:    #F2F2F4;
+  --ds-white:         #FFFFFF;
+  --ds-drool-blue:    #66D1FF;
 
-  --vp-c-brand-1:    var(--ds-red);
-  --vp-c-brand-2:    var(--ds-red-2);
-  --vp-c-brand-3:    var(--ds-red-2);
-  --vp-c-brand-soft: var(--ds-red-soft);
+  --vp-c-brand-1:    var(--ds-primary-red);
+  --vp-c-brand-2:    var(--ds-soft-red);
+  --vp-c-brand-3:    var(--ds-soft-red);
+  --vp-c-brand-soft: rgba(230, 42, 40, 0.08);
 
-  --vp-c-bg:         var(--ds-sock-white);
-  --vp-c-bg-alt:     #ffffff;
-  --vp-c-text-1:     var(--ds-ink);
-  --vp-c-text-2:     #4a4a4a;
-  --vp-c-divider:    var(--ds-gray-soft);
+  --vp-c-bg:         var(--ds-white);
+  --vp-c-bg-alt:     var(--ds-sock-shade);
+  --vp-c-text-1:     var(--ds-ink-black);
+  --vp-c-text-2:     var(--ds-slate-gray);
+  --vp-c-text-3:     var(--ds-rib-gray);
+  --vp-c-divider:    #E5E7EA;
 
-  --vp-button-brand-bg:           var(--ds-red);
-  --vp-button-brand-hover-bg:     var(--ds-red-2);
-  --vp-button-brand-active-bg:    var(--ds-red-2);
-  --vp-button-brand-border:       var(--ds-red);
-  --vp-button-brand-hover-border: var(--ds-red-2);
-  --vp-button-brand-active-border: var(--ds-red-2);
-  --vp-button-brand-text:         #ffffff;
+  --vp-button-brand-bg:           var(--ds-primary-red);
+  --vp-button-brand-hover-bg:     #C92422;
+  --vp-button-brand-active-bg:    #B11F1D;
+  --vp-button-brand-border:       var(--ds-primary-red);
+  --vp-button-brand-hover-border: #C92422;
+  --vp-button-brand-active-border:#B11F1D;
+  --vp-button-brand-text:         var(--ds-white);
 
-  --vp-font-family-base: 'Inter', -apple-system, BlinkMacSystemFont,
-                         'Segoe UI', Roboto, sans-serif;
-  --vp-font-family-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular,
-                         Menlo, monospace;
-  --vp-font-family-heading: 'IBM Plex Serif', Georgia, serif;
+  --vp-font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --vp-font-family-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --vp-font-family-heading: 'Space Grotesk', 'Inter', sans-serif;
 
-  --vp-home-hero-name-color: var(--ds-ink);
+  --vp-home-hero-name-color: var(--ds-ink-black);
 }
 
-.dark {
-  --vp-c-bg:      #0F0F10;
-  --vp-c-bg-alt:  #18181B;
-  --vp-c-text-1:  #F4F5F7;
-  --vp-c-text-2:  #B5B8BD;
-  --vp-c-divider: #2A2A2D;
+/* No dark mode — light-only per brand. */
+html.dark, html.dark body {
+  background: var(--vp-c-bg) !important;
+  color: var(--vp-c-text-1) !important;
 }
 
 h1, h2, h3 {
   font-family: var(--vp-font-family-heading);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+  font-weight: 700;
 }
 
-/* "INTERNAL" badge — pinned strip above the nav so visitors know the
- * content shape immediately. */
+/* "INTERNAL · DEV NOTES" banner above the nav */
 .VPNav::before {
-  content: 'INTERNAL · DEV NOTES · no support / no SLA · public-but-unindexed';
+  content: 'INTERNAL · DEV NOTES · public-but-unindexed · no support / no SLA';
   display: block;
-  background: var(--ds-red);
-  color: white;
+  background: var(--ds-primary-red);
+  color: var(--ds-white);
   font-family: var(--vp-font-family-mono);
   font-size: 11px;
   font-weight: 500;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   text-align: center;
-  padding: 6px 12px;
+  padding: 7px 12px;
   position: relative;
   z-index: 100;
 }
 
-/* Soft rounded cards */
 .VPFeature, .VPHomeFeatures .item {
   border-radius: 16px;
-  border: 1px solid var(--ds-gray-soft);
-  background: var(--vp-c-bg-alt);
+  border: 1px solid var(--vp-c-divider);
+  background: var(--ds-white);
+}
+
+.VPButton.brand {
+  border-radius: 12px;
+  font-weight: 600;
+  font-family: var(--vp-font-family-heading);
 }
 
 hr {
@@ -86,11 +92,11 @@ hr {
   background: linear-gradient(
     to right,
     transparent 0%,
-    var(--ds-red-soft) 20%,
-    var(--ds-red) 50%,
-    var(--ds-red-soft) 80%,
+    rgba(230, 42, 40, 0.15) 20%,
+    var(--ds-primary-red) 50%,
+    rgba(230, 42, 40, 0.15) 80%,
     transparent 100%
   );
-  opacity: 0.4;
+  opacity: 0.5;
   margin: 2rem 0;
 }

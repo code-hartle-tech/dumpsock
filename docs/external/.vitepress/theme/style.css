@@ -1,131 +1,311 @@
-/* DumpSock brand theme — external docs
- * Palette + typography come from the operator's mockups.zip brand spec.
- * Apply the same .css to the internal site so /docs/ and /wiki/ feel like
- * one product. */
+/* DumpSock brand theme — external docs (pixel-fidelity to brand_tokens.yaml)
+ *
+ * Canonical source: ../../../assets/brand/brand_tokens.yaml (v2, playful_light).
+ * NOT to be edited by feel — change brand_tokens.yaml first, then mirror here.
+ *
+ * Rule: theme: light_only. No .dark{} block. The brand brief explicitly
+ * forbids cyberpunk/dark drift for v2. */
 
-/* ── Fonts (self-hosted-friendly via Google Fonts CDN for now; can swap to
- *    bunny.net / Bunny Fonts for GDPR-friendlier serving later) ─────────── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Serif:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  /* ── Brand palette (from mockup #1 — primary brand spec) ─────────────── */
-  --ds-red:        #E74C3C;   /* primary CTA, hero accent, active links */
-  --ds-red-2:      #C0392B;   /* hover/active darker variant */
-  --ds-red-soft:   #FDEDEC;   /* tinted backgrounds (callouts, cards) */
-  --ds-ink:        #1A1A1A;   /* primary text */
-  --ds-gray:       #A5A8AC;   /* secondary text, dividers */
-  --ds-gray-soft:  #E5E7EA;   /* surface borders */
-  --ds-sock-white: #FCFEFB;   /* page background */
+  /* ── Canonical brand tokens (mirror of brand_tokens.yaml) ────────────── */
+  --ds-primary-red:   #E62A28;
+  --ds-soft-red:      #FF4444;
+  --ds-accent-pink:   #FF8A8A;
+  --ds-ink-black:     #111111;
+  --ds-charcoal:      #1F1F1F;
+  --ds-slate-gray:    #4B5563;
+  --ds-rib-gray:      #8E8E93;
+  --ds-sock-shade:    #F2F2F4;
+  --ds-white:         #FFFFFF;
+  --ds-drool-blue:    #66D1FF;
 
   /* ── VitePress overrides — brand color hierarchy ─────────────────────── */
-  --vp-c-brand-1:    var(--ds-red);
-  --vp-c-brand-2:    var(--ds-red-2);
-  --vp-c-brand-3:    var(--ds-red-2);
-  --vp-c-brand-soft: var(--ds-red-soft);
+  --vp-c-brand-1:    var(--ds-primary-red);
+  --vp-c-brand-2:    var(--ds-soft-red);
+  --vp-c-brand-3:    var(--ds-soft-red);
+  --vp-c-brand-soft: rgba(230, 42, 40, 0.08);
 
-  --vp-c-bg:         var(--ds-sock-white);
-  --vp-c-bg-alt:     #ffffff;
-  --vp-c-text-1:     var(--ds-ink);
-  --vp-c-text-2:     #4a4a4a;
-  --vp-c-divider:    var(--ds-gray-soft);
+  --vp-c-bg:         var(--ds-white);
+  --vp-c-bg-alt:     var(--ds-sock-shade);
+  --vp-c-bg-elv:     var(--ds-white);
+  --vp-c-text-1:     var(--ds-ink-black);
+  --vp-c-text-2:     var(--ds-slate-gray);
+  --vp-c-text-3:     var(--ds-rib-gray);
+  --vp-c-divider:    #E5E7EA;
+  --vp-c-gutter:     var(--ds-sock-shade);
 
-  /* Buttons — brand red with darker hover, fully rounded for the soft
-   * "Dump it freely" CTA energy from the mockup. */
-  --vp-button-brand-bg:           var(--ds-red);
-  --vp-button-brand-hover-bg:     var(--ds-red-2);
-  --vp-button-brand-active-bg:    var(--ds-red-2);
-  --vp-button-brand-border:       var(--ds-red);
-  --vp-button-brand-hover-border: var(--ds-red-2);
-  --vp-button-brand-active-border: var(--ds-red-2);
-  --vp-button-brand-text:         #ffffff;
-  --vp-button-brand-hover-text:   #ffffff;
-  --vp-button-brand-active-text:  #ffffff;
+  /* Bold red CTA per brand: cta_style: bold_red */
+  --vp-button-brand-bg:           var(--ds-primary-red);
+  --vp-button-brand-hover-bg:     #C92422;       /* slightly darker than primary */
+  --vp-button-brand-active-bg:    #B11F1D;
+  --vp-button-brand-border:       var(--ds-primary-red);
+  --vp-button-brand-hover-border: #C92422;
+  --vp-button-brand-active-border:#B11F1D;
+  --vp-button-brand-text:         var(--ds-white);
+  --vp-button-brand-hover-text:   var(--ds-white);
 
-  /* ── Typography ──────────────────────────────────────────────────────── */
+  --vp-button-alt-bg:             var(--ds-white);
+  --vp-button-alt-hover-bg:       var(--ds-sock-shade);
+  --vp-button-alt-border:         var(--ds-ink-black);
+  --vp-button-alt-text:           var(--ds-ink-black);
+
+  /* ── Typography (brand_tokens.yaml) ──────────────────────────────────── */
   --vp-font-family-base: 'Inter', -apple-system, BlinkMacSystemFont,
-                         'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-                         sans-serif;
+                         'Segoe UI', Roboto, sans-serif;
   --vp-font-family-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular,
-                         'SF Mono', Menlo, Consolas, monospace;
+                         Menlo, monospace;
+  /* Headings = Space Grotesk, geometric sans, slightly tightened tracking */
+  --vp-font-family-heading: 'Space Grotesk', 'Inter', sans-serif;
 
-  /* Headings get the slab-serif treatment from the mockup */
-  --vp-font-family-heading: 'IBM Plex Serif', Georgia, 'Times New Roman',
-                            serif;
-
-  /* Hero name = DumpSock wordmark feel — heavier weight, tighter tracking */
-  --vp-home-hero-name-color:     var(--ds-ink);
+  --vp-home-hero-name-color:      var(--ds-ink-black);
   --vp-home-hero-name-background: transparent;
 
-  /* Heavier rounding on cards for the soft sock-y feel */
-  --vp-c-default-soft: rgba(231, 76, 60, 0.04);
+  --vp-c-default-soft: rgba(230, 42, 40, 0.04);
 }
 
-/* Dark mode — invert sock-white and ink, keep the brand red */
-.dark {
-  --vp-c-bg:      #0F0F10;
-  --vp-c-bg-alt:  #18181B;
-  --vp-c-text-1:  #F4F5F7;
-  --vp-c-text-2:  #B5B8BD;
-  --vp-c-divider: #2A2A2D;
+/* No dark mode — brand brief Section 11 explicitly forbids dark drift for v2.
+ * If VitePress auto-applies .dark from a prefers-color-scheme, suppress: */
+html.dark, html.dark body {
+  background: var(--vp-c-bg) !important;
+  color: var(--vp-c-text-1) !important;
 }
 
-/* ── Heading family — apply the slab-serif to h1/h2/h3 ─────────────────── */
+/* ── Type ────────────────────────────────────────────────────────────── */
 h1, h2, h3,
 .VPHome h1, .VPHome h2,
-.name, .text {
+.VPHero .name, .VPHero .text {
   font-family: var(--vp-font-family-heading);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+  font-weight: 700;
 }
 
-/* Hero "name" — make it the DumpSock wordmark moment */
 .VPHero .name {
-  font-weight: 700;
-  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-size: clamp(2.75rem, 6vw, 4.5rem);
+  line-height: 1.05;
 }
 
 .VPHero .text {
   font-weight: 600;
   font-size: clamp(1.5rem, 3vw, 2.25rem);
-  color: var(--ds-ink);
+  color: var(--ds-ink-black);
 }
 
-/* Soft rounded cards everywhere — feature blocks, content boxes */
-.VPFeature, .VPHomeFeatures .item {
+.VPHero .tagline {
+  color: var(--ds-slate-gray);
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  max-width: 38em;
+}
+
+/* Hero image: clean, no shadow, the mascot is the moment */
+.VPHero .image-container {
+  background: transparent !important;
+}
+.VPHero .image-bg {
+  background: transparent !important;
+  display: none;
+}
+.VPHero .image-src {
+  max-height: 360px;
+}
+
+/* ── Feature cards: rounded, soft, red hover lift ────────────────────── */
+.VPFeature {
   border-radius: 16px;
-  border: 1px solid var(--ds-gray-soft);
-  background: var(--vp-c-bg-alt);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  border: 1px solid var(--vp-c-divider);
+  background: var(--ds-white);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
 .VPFeature:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(231, 76, 60, 0.08);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 28px rgba(230, 42, 40, 0.10);
+  border-color: rgba(230, 42, 40, 0.25);
 }
 
-/* Brand button — heavier rounding, more presence */
+.VPFeature .icon {
+  background: rgba(230, 42, 40, 0.08);
+  border-radius: 12px;
+}
+
+/* Brand button — bigger radius for friendlier feel */
 .VPButton.brand {
   border-radius: 12px;
   font-weight: 600;
   letter-spacing: 0.005em;
+  font-family: var(--vp-font-family-heading);
+}
+.VPButton.alt {
+  border-radius: 12px;
+  font-weight: 600;
+  font-family: var(--vp-font-family-heading);
 }
 
-/* Code blocks — soft red accent on the language label */
-.vp-code-group .tabs label {
-  font-family: var(--vp-font-family-mono);
+/* ── Tagline strip (custom landing block) ────────────────────────────── */
+.ds-tagline-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem 2.5rem;
+  padding: 1rem 1.5rem;
+  margin: 2.5rem 0;
+  background: var(--ds-sock-shade);
+  border-radius: 999px;
+  font-family: var(--vp-font-family-heading);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--ds-slate-gray);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-/* ── Sock-print divider (subtle brand touch on horizontal rules) ───────── */
+.ds-tagline-strip .dot {
+  width: 6px;
+  height: 6px;
+  background: var(--ds-primary-red);
+  border-radius: 50%;
+  display: inline-block;
+  margin: 0 0.25rem;
+}
+
+/* ── 3-step "ridiculously easy" cards ────────────────────────────────── */
+.ds-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin: 3rem 0;
+}
+
+.ds-step {
+  background: var(--ds-white);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 20px;
+  padding: 2rem;
+  position: relative;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.ds-step:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 28px rgba(230, 42, 40, 0.08);
+}
+
+.ds-step__number {
+  position: absolute;
+  top: -16px;
+  left: 24px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--ds-primary-red);
+  color: var(--ds-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--vp-font-family-heading);
+  font-weight: 700;
+  font-size: 1.125rem;
+  box-shadow: 0 4px 12px rgba(230, 42, 40, 0.3);
+}
+
+.ds-step h3 {
+  font-family: var(--vp-font-family-heading);
+  font-size: 1.25rem;
+  margin-top: 0.75rem;
+  margin-bottom: 0.5rem;
+  color: var(--ds-ink-black);
+}
+
+.ds-step p {
+  color: var(--ds-slate-gray);
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* ── Testimonials ────────────────────────────────────────────────────── */
+.ds-testimonials {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin: 2.5rem 0;
+}
+
+.ds-testimonial {
+  background: var(--ds-sock-shade);
+  border-radius: 16px;
+  padding: 1.75rem;
+  border: 1px solid var(--vp-c-divider);
+}
+
+.ds-testimonial__quote {
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  color: var(--ds-ink-black);
+  margin: 0 0 1rem 0;
+  font-style: italic;
+}
+
+.ds-testimonial__author {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9375rem;
+  color: var(--ds-slate-gray);
+}
+
+.ds-testimonial__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--ds-primary-red);
+  color: var(--ds-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--vp-font-family-heading);
+  font-weight: 700;
+}
+
+/* ── Section headings on the landing page ────────────────────────────── */
+.ds-section-title {
+  font-family: var(--vp-font-family-heading);
+  font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+  font-weight: 700;
+  text-align: center;
+  margin: 4rem 0 1rem 0;
+  color: var(--ds-ink-black);
+  letter-spacing: -0.02em;
+}
+
+.ds-section-subtitle {
+  text-align: center;
+  color: var(--ds-slate-gray);
+  font-size: 1.0625rem;
+  margin: 0 auto 2rem auto;
+  max-width: 32em;
+}
+
+/* ── Subtle sock-print HR ───────────────────────────────────────────── */
 hr {
   border: none;
   height: 1px;
   background: linear-gradient(
     to right,
     transparent 0%,
-    var(--ds-red-soft) 20%,
-    var(--ds-red) 50%,
-    var(--ds-red-soft) 80%,
+    rgba(230, 42, 40, 0.15) 20%,
+    var(--ds-primary-red) 50%,
+    rgba(230, 42, 40, 0.15) 80%,
     transparent 100%
   );
-  opacity: 0.4;
+  opacity: 0.5;
   margin: 2rem 0;
+}
+
+/* ── Nav menu — Space Grotesk for that crisp wordmark feel ──────────── */
+.VPNavBarMenu, .VPNavBarMenuLink, .VPNavBarTitle .title {
+  font-family: var(--vp-font-family-heading);
+  font-weight: 600;
 }
