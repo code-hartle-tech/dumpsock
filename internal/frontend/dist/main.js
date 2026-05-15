@@ -209,8 +209,12 @@
     $("#btn-pick-output").addEventListener("click", pickOutput);
     $("#btn-pull").addEventListener("click", startPull);
     $("#btn-cancel").addEventListener("click", cancelPull);
-    $("#btn-reveal").addEventListener("click", () => {
-      window.go.gui.App.RevealInFinder(state.outputDir);
+    $("#btn-reveal").addEventListener("click", async () => {
+      try {
+        await window.go.gui.App.RevealInFinder(state.outputDir);
+      } catch (e) {
+        toast("Couldn't open the folder: " + (e.message || e));
+      }
     });
     $("#btn-again").addEventListener("click", () => show("config"));
 

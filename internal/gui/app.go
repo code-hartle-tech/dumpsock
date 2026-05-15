@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -222,12 +223,33 @@ func (a *App) CancelBackup() {
 	}
 }
 
-// RevealInFinder opens the destination folder using the platform default.
+// RevealInFinder opens the destination folder in the platform's native
+// file browser. Despite the macOS-flavored name, it works on all three
+// supported platforms — name kept for the GUI button label.
+//
+// Semantics: opens the folder so its contents are visible. (Not "reveal"
+// in the strict macOS sense of selecting the path in its parent.)
 func (a *App) RevealInFinder(path string) error {
 	if path == "" {
 		return errors.New("empty path")
 	}
-	wruntime.BrowserOpenURL(a.ctx, "file://"+path)
+	if _, err := os.Stat(path); err != nil {
+		return fmt.Errorf("path not accessible: %w", err)
+	}
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", path)
+	case "linux":
+		cmd = exec.Command("xdg-open", path)
+	case "windows":
+		cmd = exec.Command("explorer", path)
+	default:
+		return fmt.Errorf("RevealInFinder not implemented for %s", runtime.GOOS)
+	}
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("opening %s: %w", path, err)
+	}
 	return nil
 }
 
