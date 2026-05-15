@@ -107,6 +107,29 @@ func (c *Client) Remove(remotePath string) error {
 	return c.inner.Remove(remotePath)
 }
 
+// Storage is the device's filesystem capacity snapshot as reported by
+// AFC. TotalBytes is the iPhone's total storage; FreeBytes is currently
+// available; Model is the iPhone marketing model where known.
+type Storage struct {
+	Model      string
+	TotalBytes uint64
+	FreeBytes  uint64
+}
+
+// DeviceStorage returns the iPhone's AFC-reported storage snapshot.
+// Useful for the Dashboard's storage gauge.
+func (c *Client) DeviceStorage() (Storage, error) {
+	info, err := c.inner.DeviceInfo()
+	if err != nil {
+		return Storage{}, err
+	}
+	return Storage{
+		Model:      info.Model,
+		TotalBytes: info.TotalBytes,
+		FreeBytes:  info.FreeBytes,
+	}, nil
+}
+
 // pickDevice resolves a UDID to an ios.DeviceEntry. With udid=="", pick the
 // single USB-connected device; with multiple connected, return an error
 // asking the caller to disambiguate.

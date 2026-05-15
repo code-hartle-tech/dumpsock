@@ -1,19 +1,23 @@
-// DumpSock GUI — vanilla JS. Wails binds gui.App; we call its methods
-// via window.go.gui.App.<Method>(...).
+// DumpSock v2 — vanilla JS frontend.
+// Wails binds gui.App; calls go through window.go.gui.App.<Method>(...).
 
 (function () {
   "use strict";
 
   const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
   const body = document.body;
+
+  const GAUGE_CIRCUMFERENCE = 2 * Math.PI * 84; // matches r=84 in the SVG
+
   const state = {
     device: null,
     outputDir: "",
     appInfo: null,
+    storage: null,
   };
 
-  function show(screen) { body.dataset.screen = screen; }
-
+  function setTab(tab) { body.dataset.tab = tab; }
   function toast(msg, ms = 4500) {
     const t = $("#toast");
     t.textContent = msg;
@@ -22,16 +26,30 @@
     toast._t = setTimeout(() => { t.hidden = true; }, ms);
   }
 
+  function humanBytes(n) {
+    if (!n && n !== 0) return "—";
+    if (n < 1024) return n + " B";
+    const units = ["KB", "MB", "GB", "TB"];
+    let i = -1;
+    do { n = n / 1024; i++; } while (n >= 1024 && i < units.length - 1);
+    return n.toFixed(n >= 100 ? 0 : 1) + " " + units[i];
+  }
+
+  // ── bootstrap ────────────────────────────────────────────────────
+
   async function bootstrap() {
     try {
       state.appInfo = await window.go.gui.App.Info();
       $("#version").textContent = state.appInfo.version || "dev";
-      $("#tagline").textContent = state.appInfo.tagline || "";
+      $("#version-about").textContent = state.appInfo.version || "dev";
+      $("#platform-about").textContent = state.appInfo.platform || "—";
     } catch (e) {
       console.warn("Info() unavailable yet:", e);
     }
     await rescan();
   }
+
+  // ── device discovery ─────────────────────────────────────────────
 
   async function rescan() {
     let devices = [];
@@ -39,14 +57,13 @@
       devices = await window.go.gui.App.ListDevices();
     } catch (e) {
       toast("Couldn't reach usbmuxd. Is the macOS service running?");
-      show("empty");
+      showDeviceEmpty();
       return;
     }
-    // Prefer USB-connected.
     const usb = devices.filter((d) => d.connection_type === "USB");
     const picked = usb[0] || devices[0] || null;
     if (!picked) {
-      show("empty");
+      showDeviceEmpty();
       return;
     }
     state.device = picked;
@@ -54,12 +71,11 @@
     $("#device-spec").textContent =
       [picked.product_type, picked.product_version ? "iOS " + picked.product_version : "",
        picked.connection_type].filter(Boolean).join(" · ");
+    $("#device-empty").hidden = true;
+    $("#device-row").hidden = false;
 
+    // Restore last-used output path.
     if (!state.outputDir) {
-      // Restore last-used path first; only fall back to the per-device
-      // default on a brand-new install. Defensive on field name: most
-      // Wails versions honor json tags but some old paths exposed
-      // PascalCase, so try both.
       try {
         const cfg = await window.go.gui.App.GetConfig();
         const last = cfg && (cfg.last_output || cfg.LastOutput);
@@ -70,28 +86,77 @@
           state.outputDir = await window.go.gui.App.DefaultOutputFor(picked.name || "iPhone");
         } catch { state.outputDir = ""; }
       }
-      $("#output-path").value = state.outputDir;
     }
-    show("config");
+    syncOutputPath();
+    await refreshStorage();
   }
+
+  function showDeviceEmpty() {
+    $("#device-empty").hidden = false;
+    $("#device-row").hidden = true;
+    state.device = null;
+    state.storage = null;
+    renderGauge(null);
+  }
+
+  function syncOutputPath() {
+    $("#output-path-display").textContent = state.outputDir || "—";
+    $("#output-path").value = state.outputDir || "";
+  }
+
+  // ── storage gauge ────────────────────────────────────────────────
+
+  async function refreshStorage() {
+    if (!state.device) return;
+    try {
+      const s = await window.go.gui.App.DeviceStorage(state.device.udid || "");
+      state.storage = s;
+      renderGauge(s);
+    } catch (e) {
+      state.storage = null;
+      renderGauge(null);
+    }
+  }
+
+  function renderGauge(s) {
+    const fillCircle = $("#gauge-fill-circle");
+    if (!s || !s.total_bytes) {
+      $("#gauge-percent").textContent = "—";
+      $("#gauge-label").textContent = "connect a phone";
+      $("#gauge-state").textContent = "—";
+      $("#gauge-used").textContent = "—";
+      $("#gauge-free").textContent = "—";
+      $("#gauge-total").textContent = "—";
+      fillCircle.setAttribute("stroke-dasharray", "0 " + GAUGE_CIRCUMFERENCE);
+      return;
+    }
+    const usedPct = s.used_bytes / s.total_bytes;
+    const arc = GAUGE_CIRCUMFERENCE * usedPct;
+    fillCircle.setAttribute("stroke-dasharray", arc + " " + GAUGE_CIRCUMFERENCE);
+    $("#gauge-percent").textContent = Math.round(usedPct * 100) + "%";
+    $("#gauge-label").textContent = "used";
+    $("#gauge-state").textContent = humanBytes(s.free_bytes) + " free";
+    $("#gauge-used").textContent = humanBytes(s.used_bytes);
+    $("#gauge-free").textContent = humanBytes(s.free_bytes);
+    $("#gauge-total").textContent = humanBytes(s.total_bytes);
+  }
+
+  // ── output picker ────────────────────────────────────────────────
 
   async function pickOutput() {
     try {
       const dir = await window.go.gui.App.PickDirectory("Choose DumpSock output folder");
       if (dir) {
         state.outputDir = dir;
-        $("#output-path").value = dir;
-        // Persist so next launch restores this folder.
-        try {
-          await window.go.gui.App.SaveLastOutput(dir);
-        } catch (e) {
-          console.warn("SaveLastOutput failed:", e);
-        }
+        syncOutputPath();
+        try { await window.go.gui.App.SaveLastOutput(dir); } catch {}
       }
     } catch (e) {
       toast("Couldn't open the folder picker: " + (e.message || e));
     }
   }
+
+  // ── pull flow ────────────────────────────────────────────────────
 
   function readPullForm(deleteConfirmed) {
     const wantsDelete = $("#delete-after").checked;
@@ -105,38 +170,20 @@
       no_mtime: $("#no-mtime").checked,
       no_notify: $("#no-notify").checked,
       dry_run: $("#dry-run").checked,
-      // delete_after is enabled only after the user clicked through
-      // the danger modal. The Go layer rejects delete_after without
-      // confirm_delete; UI sets them together.
       delete_after: wantsDelete && !!deleteConfirmed,
       confirm_delete: wantsDelete && !!deleteConfirmed,
     };
   }
 
-  function resetProgressUI() {
-    $("#progress-phase").textContent = "Connecting…";
-    $("#progress-fill").style.width = "0%";
-    $("#count-done").textContent = "0";
-    $("#count-total").textContent = "0";
-    $("#count-rate").textContent = "";
-    $("#current-file").textContent = "—";
-    ["pulled", "skipped", "suffixed", "nodate", "errors"].forEach((k) => {
-      $("#s-" + k).textContent = "0";
-    });
-    $("#log").textContent = "";
-    $("#done-banner").hidden = true;
-    $("#done-banner").classList.remove("error");
-    $("#btn-cancel").hidden = false;
-  }
-
   async function startPull() {
     const wantsDelete = $("#delete-after").checked;
+    if (!state.device) { toast("Plug an iPhone in first."); return; }
     if (!state.outputDir) {
-      toast("Pick an output folder first.");
+      toast("Pick an output folder in Settings first.");
+      setTab("settings");
       return;
     }
     if (wantsDelete) {
-      // Defer the actual launch until the user confirms in the modal.
       $("#delete-confirm").hidden = false;
       return;
     }
@@ -146,12 +193,12 @@
   async function launchBackup(deleteConfirmed) {
     const req = readPullForm(deleteConfirmed);
     resetProgressUI();
-    show("pulling");
+    setTab("progress");
     try {
       await window.go.gui.App.StartBackup(req);
     } catch (e) {
       toast("Couldn't start: " + (e.message || e));
-      show("config");
+      setTab("dashboard");
     }
   }
 
@@ -178,13 +225,29 @@
     }
   }
 
+  function resetProgressUI() {
+    $("#progress-phase").textContent = "Connecting…";
+    $("#progress-fill").style.width = "0%";
+    $("#count-done").textContent = "0";
+    $("#count-total").textContent = "0";
+    $("#count-rate").textContent = "";
+    $("#current-file").textContent = "—";
+    ["pulled", "skipped", "suffixed", "nodate", "errors"].forEach((k) => {
+      $("#s-" + k).textContent = "0";
+    });
+    $("#log").textContent = "";
+    $("#done-banner").hidden = true;
+    $("#done-banner").classList.remove("error");
+    $("#btn-cancel").hidden = false;
+  }
+
   function onProgress(ev) {
     $("#progress-phase").textContent = fmtPhase(ev);
     if (ev.total) {
       $("#count-total").textContent = ev.total;
       $("#progress-fill").style.width = pct(ev.done || 0, ev.total) + "%";
     }
-    if (ev.done) $("#count-done").textContent = ev.done;
+    if (typeof ev.done === "number") $("#count-done").textContent = ev.done;
     if (ev.current) $("#current-file").textContent = ev.current;
     if (typeof ev.pulled === "number") $("#s-pulled").textContent = ev.pulled;
     if (typeof ev.pre_skipped === "number" || typeof ev.post_skipped === "number") {
@@ -202,7 +265,6 @@
   }
 
   function onDone(payload) {
-    // Stay on the pulling screen; morph it into a done state in place.
     $("#btn-cancel").hidden = true;
     $("#done-banner").hidden = false;
     if (payload.error) {
@@ -214,7 +276,6 @@
       const r = payload.result || {};
       $("#progress-phase").textContent = "Done";
       $("#done-banner").classList.remove("error");
-      // Fill the progress bar; rate/current become final.
       $("#progress-fill").style.width = "100%";
       const parts = [];
       parts.push((r.Pulled || 0) + " pulled");
@@ -227,28 +288,37 @@
       if (r.DeleteErrors) parts.push(r.DeleteErrors + " delete errors");
       if (r.Errors) parts.push(r.Errors + " errors");
       $("#done-summary").textContent = parts.join(" · ");
-      // The "Recently Deleted" caveat is only relevant when we actually
-      // ran a deletion. Hide it on plain pulls.
       $("#done-hint").hidden = !(r.Deleted > 0);
+      // Refresh storage after the run — the iPhone's free space should have moved.
+      refreshStorage();
     }
   }
 
+  // ── bind ─────────────────────────────────────────────────────────
+
   function bindUI() {
+    // Tab nav
+    $$(".tab-btn").forEach((b) => {
+      b.addEventListener("click", () => setTab(b.dataset.tabTarget));
+    });
+
+    // Dashboard
     $("#btn-rescan").addEventListener("click", rescan);
-    $("#btn-rescan-empty").addEventListener("click", rescan);
     $("#btn-pick-output").addEventListener("click", pickOutput);
     $("#btn-pull").addEventListener("click", startPull);
+
+    // Settings
+    $("#btn-pick-output-settings").addEventListener("click", pickOutput);
+
+    // Progress
     $("#btn-cancel").addEventListener("click", cancelPull);
     $("#btn-reveal").addEventListener("click", async () => {
-      try {
-        await window.go.gui.App.RevealInFinder(state.outputDir);
-      } catch (e) {
-        toast("Couldn't open the folder: " + (e.message || e));
-      }
+      try { await window.go.gui.App.RevealInFinder(state.outputDir); }
+      catch (e) { toast("Couldn't open the folder: " + (e.message || e)); }
     });
-    $("#btn-again").addEventListener("click", () => show("config"));
+    $("#btn-again").addEventListener("click", () => setTab("dashboard"));
 
-    // Delete-confirmation modal
+    // Delete confirmation modal
     $("#btn-cancel-delete").addEventListener("click", () => {
       $("#delete-confirm").hidden = true;
     });
@@ -268,8 +338,6 @@
     window.runtime.EventsOn("backup:done", onDone);
   }
 
-  // Wails injects its runtime + bindings before DOMContentLoaded usually,
-  // but be defensive.
   function ready(fn) {
     if (document.readyState !== "loading") fn();
     else document.addEventListener("DOMContentLoaded", fn);
@@ -278,7 +346,6 @@
   ready(() => {
     bindUI();
     bindRuntime();
-    // Tiny delay so the runtime has a chance to populate window.go.
     setTimeout(bootstrap, 50);
   });
 })();

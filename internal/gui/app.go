@@ -18,6 +18,7 @@ import (
 
 	"github.com/danielpaulus/go-ios/ios"
 
+	"github.com/code-hartle-tech/dumpsock/internal/afc"
 	"github.com/code-hartle-tech/dumpsock/internal/backup"
 	"github.com/code-hartle-tech/dumpsock/internal/branding"
 
@@ -163,6 +164,38 @@ func (a *App) ListDevices() ([]Device, error) {
 		out = append(out, d)
 	}
 	return out, nil
+}
+
+// Storage is the iPhone storage snapshot exposed to the GUI's storage gauge.
+type Storage struct {
+	Model      string `json:"model"`
+	TotalBytes uint64 `json:"total_bytes"`
+	FreeBytes  uint64 `json:"free_bytes"`
+	UsedBytes  uint64 `json:"used_bytes"`
+}
+
+// DeviceStorage queries AFC for the connected device's storage capacity.
+// Returns a zero-valued Storage with an error if no device is reachable.
+func (a *App) DeviceStorage(udid string) (Storage, error) {
+	cl, err := afc.Open(udid)
+	if err != nil {
+		return Storage{}, err
+	}
+	defer cl.Close()
+	s, err := cl.DeviceStorage()
+	if err != nil {
+		return Storage{}, err
+	}
+	used := uint64(0)
+	if s.TotalBytes > s.FreeBytes {
+		used = s.TotalBytes - s.FreeBytes
+	}
+	return Storage{
+		Model:      s.Model,
+		TotalBytes: s.TotalBytes,
+		FreeBytes:  s.FreeBytes,
+		UsedBytes:  used,
+	}, nil
 }
 
 // DefaultOutputFor proposes a default output directory for the given
