@@ -1,0 +1,131 @@
+/* DumpSock brand theme — external docs
+ * Palette + typography come from the operator's mockups.zip brand spec.
+ * Apply the same .css to the internal site so /docs/ and /wiki/ feel like
+ * one product. */
+
+/* ── Fonts (self-hosted-friendly via Google Fonts CDN for now; can swap to
+ *    bunny.net / Bunny Fonts for GDPR-friendlier serving later) ─────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Serif:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* ── Brand palette (from mockup #1 — primary brand spec) ─────────────── */
+  --ds-red:        #E74C3C;   /* primary CTA, hero accent, active links */
+  --ds-red-2:      #C0392B;   /* hover/active darker variant */
+  --ds-red-soft:   #FDEDEC;   /* tinted backgrounds (callouts, cards) */
+  --ds-ink:        #1A1A1A;   /* primary text */
+  --ds-gray:       #A5A8AC;   /* secondary text, dividers */
+  --ds-gray-soft:  #E5E7EA;   /* surface borders */
+  --ds-sock-white: #FCFEFB;   /* page background */
+
+  /* ── VitePress overrides — brand color hierarchy ─────────────────────── */
+  --vp-c-brand-1:    var(--ds-red);
+  --vp-c-brand-2:    var(--ds-red-2);
+  --vp-c-brand-3:    var(--ds-red-2);
+  --vp-c-brand-soft: var(--ds-red-soft);
+
+  --vp-c-bg:         var(--ds-sock-white);
+  --vp-c-bg-alt:     #ffffff;
+  --vp-c-text-1:     var(--ds-ink);
+  --vp-c-text-2:     #4a4a4a;
+  --vp-c-divider:    var(--ds-gray-soft);
+
+  /* Buttons — brand red with darker hover, fully rounded for the soft
+   * "Dump it freely" CTA energy from the mockup. */
+  --vp-button-brand-bg:           var(--ds-red);
+  --vp-button-brand-hover-bg:     var(--ds-red-2);
+  --vp-button-brand-active-bg:    var(--ds-red-2);
+  --vp-button-brand-border:       var(--ds-red);
+  --vp-button-brand-hover-border: var(--ds-red-2);
+  --vp-button-brand-active-border: var(--ds-red-2);
+  --vp-button-brand-text:         #ffffff;
+  --vp-button-brand-hover-text:   #ffffff;
+  --vp-button-brand-active-text:  #ffffff;
+
+  /* ── Typography ──────────────────────────────────────────────────────── */
+  --vp-font-family-base: 'Inter', -apple-system, BlinkMacSystemFont,
+                         'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+                         sans-serif;
+  --vp-font-family-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular,
+                         'SF Mono', Menlo, Consolas, monospace;
+
+  /* Headings get the slab-serif treatment from the mockup */
+  --vp-font-family-heading: 'IBM Plex Serif', Georgia, 'Times New Roman',
+                            serif;
+
+  /* Hero name = DumpSock wordmark feel — heavier weight, tighter tracking */
+  --vp-home-hero-name-color:     var(--ds-ink);
+  --vp-home-hero-name-background: transparent;
+
+  /* Heavier rounding on cards for the soft sock-y feel */
+  --vp-c-default-soft: rgba(231, 76, 60, 0.04);
+}
+
+/* Dark mode — invert sock-white and ink, keep the brand red */
+.dark {
+  --vp-c-bg:      #0F0F10;
+  --vp-c-bg-alt:  #18181B;
+  --vp-c-text-1:  #F4F5F7;
+  --vp-c-text-2:  #B5B8BD;
+  --vp-c-divider: #2A2A2D;
+}
+
+/* ── Heading family — apply the slab-serif to h1/h2/h3 ─────────────────── */
+h1, h2, h3,
+.VPHome h1, .VPHome h2,
+.name, .text {
+  font-family: var(--vp-font-family-heading);
+  letter-spacing: -0.01em;
+}
+
+/* Hero "name" — make it the DumpSock wordmark moment */
+.VPHero .name {
+  font-weight: 700;
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+}
+
+.VPHero .text {
+  font-weight: 600;
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+  color: var(--ds-ink);
+}
+
+/* Soft rounded cards everywhere — feature blocks, content boxes */
+.VPFeature, .VPHomeFeatures .item {
+  border-radius: 16px;
+  border: 1px solid var(--ds-gray-soft);
+  background: var(--vp-c-bg-alt);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.VPFeature:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(231, 76, 60, 0.08);
+}
+
+/* Brand button — heavier rounding, more presence */
+.VPButton.brand {
+  border-radius: 12px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+}
+
+/* Code blocks — soft red accent on the language label */
+.vp-code-group .tabs label {
+  font-family: var(--vp-font-family-mono);
+}
+
+/* ── Sock-print divider (subtle brand touch on horizontal rules) ───────── */
+hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    var(--ds-red-soft) 20%,
+    var(--ds-red) 50%,
+    var(--ds-red-soft) 80%,
+    transparent 100%
+  );
+  opacity: 0.4;
+  margin: 2rem 0;
+}

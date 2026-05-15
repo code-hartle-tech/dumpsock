@@ -12,7 +12,10 @@ export default defineConfig({
   description: 'Dev logs, runbooks, discoveries, classified.',
   lang: 'en-US',
   cleanUrls: true,
-  base: '/',
+  // Served at https://dumpsock.hartle.tech/wiki/ — same subdomain as the
+  // external /docs/ build. Public-but-unindexed: noindex headers + robots.txt
+  // deny under /wiki/. Content here must NOT contain secrets — Rule #1.
+  base: '/wiki/',
 
   // The internal wiki cross-references the external (separate VitePress
   // build) site and a localhost dev server. Those aren't resolvable from
