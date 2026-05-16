@@ -16,9 +16,20 @@ export default defineConfig({
 
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/dumpsock-mascot.svg' }],
+    ['link', { rel: 'apple-touch-icon', href: '/dumpsock-mascot.svg' }],
+    ['link', { rel: 'mask-icon', href: '/dumpsock-mascot.svg', color: '#E62A28' }],
     ['meta', { name: 'theme-color', content: '#E62A28' }],
+    ['meta', { name: 'color-scheme', content: 'light' }],
+    ['meta', { property: 'og:type', content: 'website' }],
+    ['meta', { property: 'og:url', content: 'https://dumpsock.hartle.tech/' }],
     ['meta', { property: 'og:title', content: 'DumpSock — Cloudless freedom for your iPhone' }],
     ['meta', { property: 'og:description', content: 'Plug your phone in. Wring it dry. Local-first photo and video backup from iPhone / iPad to disk. No iCloud, no account, no telemetry.' }],
+    ['meta', { property: 'og:image', content: 'https://dumpsock.hartle.tech/dumpsock-mascot.svg' }],
+    ['meta', { property: 'og:site_name', content: 'DumpSock' }],
+    ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+    ['meta', { name: 'twitter:title', content: 'DumpSock — Cloudless freedom for your iPhone' }],
+    ['meta', { name: 'twitter:description', content: 'Local-first photo + video backup from iPhone/iPad. No cloud, no account.' }],
+    ['meta', { name: 'twitter:image', content: 'https://dumpsock.hartle.tech/dumpsock-mascot.svg' }],
   ],
 
   themeConfig: {

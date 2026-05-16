@@ -1,0 +1,6 @@
+# Belt-and-suspenders Disallow for /wiki/* — already Caddy-gated to
+# tailnet, this prevents search-engine indexing if a link ever leaks.
+
+User-agent: *
+Disallow: /wiki/
+Allow: /
