@@ -1,12 +1,14 @@
-/* DumpSock brand theme — internal wiki
- * Mirrors external/.vitepress/theme/style.css (canonical = brand_tokens.yaml).
- * Difference: thin "INTERNAL · DEV NOTES · public-but-unindexed" strip above
- * the nav so visitors know the content shape immediately.
- * Keep palette + fonts in sync with external when brand changes. */
+/* DumpSock internal wiki — identical theme to the external site.
+ * Per operator: /wiki/ should look the same as the public site (same
+ * sock-white surfaces, primary red, Space Grotesk headings).
+ *
+ * Canonical source: ../../../assets/brand/brand_tokens.yaml. Mirror of
+ * docs/external/.vitepress/theme/style.css — keep in sync. */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
+  /* Brand tokens (mirror of brand_tokens.yaml) */
   --ds-primary-red:   #E62A28;
   --ds-soft-red:      #FF4444;
   --ds-accent-pink:   #FF8A8A;
@@ -25,10 +27,12 @@
 
   --vp-c-bg:         var(--ds-white);
   --vp-c-bg-alt:     var(--ds-sock-shade);
+  --vp-c-bg-elv:     var(--ds-white);
   --vp-c-text-1:     var(--ds-ink-black);
   --vp-c-text-2:     var(--ds-slate-gray);
   --vp-c-text-3:     var(--ds-rib-gray);
   --vp-c-divider:    #E5E7EA;
+  --vp-c-gutter:     var(--ds-sock-shade);
 
   --vp-button-brand-bg:           var(--ds-primary-red);
   --vp-button-brand-hover-bg:     #C92422;
@@ -37,18 +41,21 @@
   --vp-button-brand-hover-border: #C92422;
   --vp-button-brand-active-border:#B11F1D;
   --vp-button-brand-text:         var(--ds-white);
+  --vp-button-brand-hover-text:   var(--ds-white);
 
-  --vp-font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --vp-font-family-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --vp-button-alt-bg:             var(--ds-white);
+  --vp-button-alt-hover-bg:       var(--ds-sock-shade);
+  --vp-button-alt-border:         var(--ds-ink-black);
+  --vp-button-alt-text:           var(--ds-ink-black);
+
+  --vp-font-family-base:    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --vp-font-family-mono:    'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   --vp-font-family-heading: 'Space Grotesk', 'Inter', sans-serif;
 
-  --vp-home-hero-name-color: var(--ds-ink-black);
-}
+  --vp-home-hero-name-color:      var(--ds-ink-black);
+  --vp-home-hero-name-background: transparent;
 
-/* No dark mode — light-only per brand. */
-html.dark, html.dark body {
-  background: var(--vp-c-bg) !important;
-  color: var(--vp-c-text-1) !important;
+  --vp-c-default-soft: rgba(230, 42, 40, 0.04);
 }
 
 h1, h2, h3 {
@@ -57,33 +64,32 @@ h1, h2, h3 {
   font-weight: 700;
 }
 
-/* "INTERNAL · DEV NOTES" banner above the nav */
-.VPNav::before {
-  content: 'INTERNAL · DEV NOTES · public-but-unindexed · no support / no SLA';
-  display: block;
-  background: var(--ds-primary-red);
-  color: var(--ds-white);
-  font-family: var(--vp-font-family-mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  text-align: center;
-  padding: 7px 12px;
-  position: relative;
-  z-index: 100;
-}
-
-.VPFeature, .VPHomeFeatures .item {
+.VPFeature {
   border-radius: 16px;
   border: 1px solid var(--vp-c-divider);
   background: var(--ds-white);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.VPFeature:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 28px rgba(230, 42, 40, 0.10);
+  border-color: rgba(230, 42, 40, 0.25);
 }
 
 .VPButton.brand {
   border-radius: 12px;
   font-weight: 600;
   font-family: var(--vp-font-family-heading);
+}
+.VPButton.alt {
+  border-radius: 12px;
+  font-weight: 600;
+  font-family: var(--vp-font-family-heading);
+}
+
+.VPNavBarMenu, .VPNavBarMenuLink, .VPNavBarTitle .title {
+  font-family: var(--vp-font-family-heading);
+  font-weight: 600;
 }
 
 hr {

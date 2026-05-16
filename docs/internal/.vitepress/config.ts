@@ -1,21 +1,23 @@
 import { defineConfig } from 'vitepress'
 
-// Internal DumpSock wiki. Intended for Tailnet-only deployment behind
-// the operator's existing void.neartrace.app Caddy convention, OR run
-// locally with `npm run internal:dev` (port 5175).
+// Internal DumpSock wiki. Served at https://dumpsock.hartle.tech/wiki/
+// behind Caddy on the VPS — Caddy enforces tailnet-only access for this
+// path (remote_ip matcher on 100.64.0.0/10). Public internet hits /wiki/
+// gets a 404. Looks identical to the public site by design (same brand
+// theme), just hosts different content.
 //
-// Anything in here may name internal paths, hostnames, dev tooling,
-// in-flight issues. Public-safe content lives under docs/external/.
+// Run locally with `npm run internal:dev` (port 5175).
 
 export default defineConfig({
-  title: '🧦 DumpSock — Internal Wiki',
-  description: 'Dev logs, runbooks, discoveries, classified.',
+  title: 'DumpSock — Wiki',
+  description: 'Dev logs, runbooks, discoveries. Tailnet-only.',
   lang: 'en-US',
   cleanUrls: true,
-  // Served at https://dumpsock.hartle.tech/wiki/ — same subdomain as the
-  // external /docs/ build. Public-but-unindexed: noindex headers + robots.txt
-  // deny under /wiki/. Content here must NOT contain secrets — Rule #1.
+  // Served at https://dumpsock.hartle.tech/wiki/ via Caddy on the VPS,
+  // tailnet-only (remote_ip matcher in vps_dashboard role's Caddyfile).
   base: '/wiki/',
+  // Brand spec (v2_brief.md §11): light-only. Same as external config.
+  appearance: false,
 
   // The internal wiki cross-references the external (separate VitePress
   // build) site and a localhost dev server. Those aren't resolvable from
@@ -34,12 +36,15 @@ export default defineConfig({
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/dumpsock-mascot.svg' }],
     ['meta', { name: 'theme-color', content: '#E62A28' }],
+    // Access control is enforced by Caddy at the network layer. noindex
+    // is belt-and-suspenders so any tailnet member who shares a link
+    // doesn't accidentally see Google crawl it.
     ['meta', { name: 'robots', content: 'noindex,nofollow' }],
   ],
 
   themeConfig: {
     logo: { src: '/dumpsock-mascot.svg', alt: 'DumpSock' },
-    siteTitle: '🧦 DumpSock — Internal',
+    siteTitle: 'DumpSock — Wiki',
 
     nav: [
       { text: 'Dev', link: '/dev/architecture' },
@@ -111,7 +116,7 @@ export default defineConfig({
     ],
 
     footer: {
-      message: 'Internal. Tailnet-only.',
+      message: 'Internal · Tailnet-only · <a href="/">back to the public site</a>',
       copyright: '© HARTLE.TECH',
     },
 

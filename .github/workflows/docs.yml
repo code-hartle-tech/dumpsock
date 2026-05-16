@@ -1,10 +1,10 @@
-name: Deploy docs
+name: Docs build check
 
-# Builds BOTH VitePress sites (external + internal), merges them into a
-# single Pages deployment so dumpsock.hartle.tech serves:
-#   /       → public marketing + user docs (external, at root)
-#   /wiki/  → developer-facing internal docs (public-but-unindexed,
-#             robots.txt + noindex; do NOT put secrets here)
+# Validates that BOTH VitePress sites still build cleanly on every PR /
+# push touching docs/**. No deploy step — production deploy is handled
+# by Ansible on the OVH VPS (clones this repo, builds both halves, served
+# by Caddy at dumpsock.hartle.tech). See
+# hartle.tech-terraform/ansible/roles/product_docs/.
 
 on:
   push:
@@ -12,25 +12,20 @@ on:
     paths:
       - "docs/**"
       - ".github/workflows/docs.yml"
+  pull_request:
+    paths:
+      - "docs/**"
+      - ".github/workflows/docs.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-# One deploy at a time; never cancel a deploy in flight.
-concurrency:
-  group: pages
-  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -42,50 +37,22 @@ jobs:
         working-directory: docs
         run: npm ci
 
-      - name: Build external (public docs at /docs/)
+      - name: Build external (public site at root)
         working-directory: docs
         run: npm run external:build
 
-      - name: Build internal (semi-public wiki at /wiki/)
+      - name: Build internal (wiki at /wiki/, tailnet-only on VPS)
         working-directory: docs
         run: npm run internal:build
 
-      - name: Compose unified Pages site
+      - name: Summary
         run: |
-          set -euo pipefail
-          mkdir -p _site/wiki
-          # External (marketing + user docs) → root of _site.
-          cp -r docs/external/.vitepress/dist/. _site/
-          # Internal (dev wiki) → /wiki/ subpath.
-          cp -r docs/internal/.vitepress/dist/. _site/wiki/
-
-          # Custom domain — Pages reads this on first deploy to enforce HTTPS.
-          echo "dumpsock.hartle.tech" > _site/CNAME
-
-          # robots.txt — allow everything except /wiki (internal,
-          # semi-public, do-not-index).
-          cat > _site/robots.txt <<'EOF'
-          User-agent: *
-          Disallow: /wiki/
-
-          Sitemap: https://dumpsock.hartle.tech/sitemap.xml
-          EOF
-
-          echo "--- _site tree (top 30):"
-          find _site -maxdepth 3 -type f | sort | head -30
-          echo "--- sizes:"
-          du -sh _site _site/wiki
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/deploy-pages@v4
-        id: deployment
+          {
+            echo "## Docs build OK"
+            echo ""
+            echo "Both halves built cleanly. The product_docs Ansible role"
+            echo "on the OVH VPS will pull this commit on the next iac-apply"
+            echo "run and serve via Caddy at:"
+            echo "  - https://dumpsock.hartle.tech/ (public)"
+            echo "  - https://dumpsock.hartle.tech/wiki/ (tailnet-only)"
+          } >> "$GITHUB_STEP_SUMMARY"
