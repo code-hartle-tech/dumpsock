@@ -9,6 +9,10 @@ export default defineConfig({
   // IS the site. Guide nav link routes users into the documentation pages
   // (/guide/, /features/, /reference/). Internal wiki remains at /wiki/.
   base: '/',
+  // Brand spec (assets/brand/v2_brief.md §11): light-only. Disable the
+  // VitePress dark-mode toggle entirely — half-suppressing it via CSS
+  // creates a broken light-body/dark-cards state.
+  appearance: false,
 
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/dumpsock-mascot.svg' }],

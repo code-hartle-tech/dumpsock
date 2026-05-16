@@ -66,11 +66,9 @@
 }
 
 /* No dark mode — brand brief Section 11 explicitly forbids dark drift for v2.
- * If VitePress auto-applies .dark from a prefers-color-scheme, suppress: */
-html.dark, html.dark body {
-  background: var(--vp-c-bg) !important;
-  color: var(--vp-c-text-1) !important;
-}
+ * VitePress's appearance toggle is disabled in config.ts (appearance: false)
+ * so .dark class never gets applied. Half-suppressing via CSS was the cause
+ * of the earlier "broken dark-mode" screenshot (light body, dark cards). */
 
 /* ── Type ────────────────────────────────────────────────────────────── */
 h1, h2, h3,
