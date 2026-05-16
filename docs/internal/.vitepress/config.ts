@@ -13,9 +13,11 @@ export default defineConfig({
   description: 'Dev logs, runbooks, discoveries. Tailnet-only.',
   lang: 'en-US',
   cleanUrls: true,
-  // Served at https://dumpsock.hartle.tech/wiki/ via Caddy on the VPS,
-  // tailnet-only (remote_ip matcher in vps_dashboard role's Caddyfile).
-  base: '/wiki/',
+  // Served at https://private.dumpsock.hartle.tech/ via Caddy on the VPS.
+  // DNS A record points at the tailnet IP (100.105.94.108) — the DNS
+  // itself is the access boundary, like void.hartle.tech. No Caddy
+  // remote_ip gate; off-tailnet clients can't resolve / route here.
+  base: '/',
   // Brand spec (v2_brief.md §11): light-only. Same as external config.
   appearance: false,
 
