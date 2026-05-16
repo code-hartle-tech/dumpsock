@@ -5,9 +5,10 @@ export default defineConfig({
   description: 'Cloudless freedom for your iPhone. Local-first photo and video backup.',
   lang: 'en-US',
   cleanUrls: true,
-  // Served at https://dumpsock.hartle.tech/docs/ — internal wiki shares the
-  // same subdomain at /wiki/. Pair must stay in sync.
-  base: '/docs/',
+  // Served at root of https://dumpsock.hartle.tech/ — the marketing landing
+  // IS the site. Guide nav link routes users into the documentation pages
+  // (/guide/, /features/, /reference/). Internal wiki remains at /wiki/.
+  base: '/',
 
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/dumpsock-mascot.svg' }],
