@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  DumpSock app icon — v3 (2026-05-17)
+
+  Authored as a square 1024×1024 vector so every rendered size (16 →
+  1024) downsamples crisply. Subject is a "straight sock viewed
+  head-on": a tube-sock cuff with ribbed vertical knit channels, two
+  bold horizontal red stripes, and the sock body extending past the
+  bottom edge of the icon (suggests the sock continues off-canvas).
+
+  Detail stack (back to front):
+    1. Drool-blue canvas (#66D1FF) — brand accent picked 2026-05-17.
+    2. Sock body — pure white #FFFFFF with a faint left/right edge
+       gradient (#EFEFF2 at edges) for volumetric shading. Rounded
+       top (cuff opening), square bottom (continues off-canvas).
+    3. Drop shadow under the sock — gives it physical presence.
+    4. Cuff inner shadow — subtle dark gradient at the top inside
+       the cuff, reading as "you can see down into the sock."
+    5. Vertical ribbing — 18 thin slate lines at 55% opacity,
+       evenly spaced from the cuff opening down to mid-cuff.
+    6. Two brand-red horizontal stripes #E62A28, full-width inside
+       the sock clip, with a faint highlight at the top edge of each
+       to suggest fabric sheen.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" shape-rendering="geometricPrecision">
+  <defs>
+    <filter id="sockShadow" x="-15%" y="-5%" width="130%" height="120%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="18"/>
+      <feOffset dx="0" dy="14"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.22"/></feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <linearGradient id="sockBody" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#EBEBEF"/>
+      <stop offset="12%"  stop-color="#FFFFFF"/>
+      <stop offset="88%"  stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#EBEBEF"/>
+    </linearGradient>
+
+    <linearGradient id="cuffInner" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#1F1F1F" stop-opacity="0.28"/>
+      <stop offset="45%"  stop-color="#1F1F1F" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#1F1F1F" stop-opacity="0"/>
+    </linearGradient>
+
+    <linearGradient id="stripeShine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#FFFFFF" stop-opacity="0.14"/>
+      <stop offset="45%"  stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.08"/>
+    </linearGradient>
+
+    <path id="sockShape" d="M 96 168 Q 96 64 200 64 L 824 64 Q 928 64 928 168 L 928 1024 L 96 1024 Z"/>
+
+    <clipPath id="sockClip"><use href="#sockShape"/></clipPath>
+  </defs>
+
+  <rect width="1024" height="1024" fill="#66D1FF"/>
+
+  <g filter="url(#sockShadow)">
+    <use href="#sockShape" fill="url(#sockBody)"/>
+  </g>
+
+  <g clip-path="url(#sockClip)">
+    <rect x="0" y="64" width="1024" height="180" fill="url(#cuffInner)"/>
+
+    <g stroke="#A0A0A8" stroke-width="3.5" stroke-linecap="round" opacity="0.55">
+      <line x1="140" y1="128" x2="140" y2="420"/>
+      <line x1="184" y1="128" x2="184" y2="420"/>
+      <line x1="228" y1="128" x2="228" y2="420"/>
+      <line x1="272" y1="128" x2="272" y2="420"/>
+      <line x1="316" y1="128" x2="316" y2="420"/>
+      <line x1="360" y1="128" x2="360" y2="420"/>
+      <line x1="404" y1="128" x2="404" y2="420"/>
+      <line x1="448" y1="128" x2="448" y2="420"/>
+      <line x1="492" y1="128" x2="492" y2="420"/>
+      <line x1="536" y1="128" x2="536" y2="420"/>
+      <line x1="580" y1="128" x2="580" y2="420"/>
+      <line x1="624" y1="128" x2="624" y2="420"/>
+      <line x1="668" y1="128" x2="668" y2="420"/>
+      <line x1="712" y1="128" x2="712" y2="420"/>
+      <line x1="756" y1="128" x2="756" y2="420"/>
+      <line x1="800" y1="128" x2="800" y2="420"/>
+      <line x1="844" y1="128" x2="844" y2="420"/>
+      <line x1="884" y1="128" x2="884" y2="420"/>
+    </g>
+
+    <rect x="0" y="512" width="1024" height="108" fill="#E62A28"/>
+    <rect x="0" y="512" width="1024" height="108" fill="url(#stripeShine)"/>
+    <rect x="0" y="664" width="1024" height="108" fill="#E62A28"/>
+    <rect x="0" y="664" width="1024" height="108" fill="url(#stripeShine)"/>
+  </g>
+
+  <use href="#sockShape" fill="none" stroke="#1F1F1F" stroke-width="2" stroke-opacity="0.42" stroke-linejoin="round"/>
+</svg>

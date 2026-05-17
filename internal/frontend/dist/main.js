@@ -27,11 +27,262 @@
     appInfo: null,
     storage: null,
     jobs: JSON.parse(localStorage.getItem("dumpsock.jobs") || "[]"),
+    // Browse-tab state: current AFC path + map of selected paths→size.
+    // browseSelectedIsDir runs in parallel so we know which entries are
+    // folders (sentinel size 0; real bytes come from the backend's
+    // ExpandRemoteSelection walk at backup time).
+    browsePath: "/",
+    browseSelected: {},
+    browseSelectedIsDir: {},
+    browseSource: "device",   // "device" | "app"
+    browseAppBundle: "",
   };
 
   function setTab(tab) {
     // "backups" is an alias for "progress" — same underlying panel.
     body.dataset.tab = tab;
+    // Toggle the `hidden` attribute on each .tab panel. CSS has
+    // `.tab[hidden] { display: none }`, so this drives panel visibility.
+    document.querySelectorAll(".tab[data-tab]").forEach((panel) => {
+      panel.hidden = panel.dataset.tab !== tab;
+    });
+    if (tab === "backups") {
+      // Lazy-refresh: fetch the saved-backups list each time the user
+      // opens the tab (cheap; ListBackups walks the config registry).
+      refreshBackupsList();
+    }
+    if (tab === "browse") {
+      // Open Browse at the device root so the user sees /DCIM, /Books, ...
+      if (!state.browsePath) state.browsePath = "/";
+      refreshBrowse();
+    }
+  }
+
+  // ── browse tab ───────────────────────────────────────────────────
+  // Render AFC's one-level-deep view of the iPhone filesystem. Selection
+  // is per-file; folders are navigated by click. "Backup selected"
+  // routes through StartBackup with only_paths set.
+  async function refreshBrowse() {
+    const dev = state.device;
+    const host = $("#browse-list");
+    const empty = $("#browse-empty");
+    const breadcrumb = $("#browse-breadcrumb");
+    if (!host) return;
+    host.querySelectorAll(".browse-row").forEach((n) => n.remove());
+    const pathLabel = state.browseSource === "app"
+      ? `[${state.browseAppBundle || "—"}] ${state.browsePath || "/"}`
+      : (state.browsePath || "/");
+    breadcrumb.textContent = pathLabel;
+    if (!dev) {
+      empty.textContent = "Plug in an iPhone, then come back here.";
+      empty.hidden = false;
+      return;
+    }
+    if (state.browseSource === "app" && !state.browseAppBundle) {
+      empty.textContent = "Pick an app from the list above.";
+      empty.hidden = false;
+      return;
+    }
+    empty.textContent = "Loading…";
+    empty.hidden = false;
+    let entries = [];
+    try {
+      if (state.browseSource === "app") {
+        entries = await window.go.gui.App.BrowseApp(dev.udid, state.browseAppBundle, state.browsePath || "/");
+      } else {
+        entries = await window.go.gui.App.BrowseRemote(dev.udid, state.browsePath || "/");
+      }
+    } catch (e) {
+      empty.textContent = "Couldn't list this folder: " + (e.message || e);
+      return;
+    }
+    if (!entries.length) {
+      empty.textContent = "This folder is empty.";
+      return;
+    }
+    empty.hidden = true;
+    let hiddenCount = 0;
+    for (const e of entries) {
+      const isSel = !!state.browseSelected[e.path];
+      const row = document.createElement("div");
+      const cls = ["browse-row"];
+      if (e.is_dir) cls.push("dir");
+      if (e.unreadable) cls.push("unreadable");
+      row.className = cls.join(" ");
+      // Folders are now selectable too (whole-folder backup). Unreadable
+      // rows (iOS 15+ permission cliff — /PhotoData/Metadata, app
+      // sandboxes without UIFileSharingEnabled, etc.) are still listed
+      // so the user knows the folder isn't empty, but their checkbox +
+      // actions are disabled.
+      const icon = e.unreadable ? "🔒" : (e.is_dir ? "📁" : "📄");
+      const sizeLabel = e.unreadable
+        ? "hidden by iOS"
+        : (e.is_dir ? "folder" : humanBytes(e.size));
+      row.innerHTML = `
+        <label class="browse-pick">
+          <input type="checkbox" ${isSel ? "checked" : ""} ${e.unreadable ? "disabled" : ""}>
+        </label>
+        <div class="browse-name">${icon} ${escapeHTML(e.name)}</div>
+        <div class="browse-size muted small">${sizeLabel}</div>
+        <div class="browse-row-actions">
+          <button class="btn ghost small" data-act="rename" title="Rename — coming soon (go-ios doesn't yet expose AFC rename)" disabled>Rename</button>
+          <button class="btn ghost small btn-text-danger" data-act="delete" title="Delete from device" ${e.unreadable ? "disabled" : ""}>Delete</button>
+        </div>
+      `;
+      if (e.unreadable) {
+        hiddenCount++;
+        // Tooltip so the user can hover to see why.
+        row.title = "iOS 15+ blocks access to this entry over AFC. Likely an app sandbox without UIFileSharingEnabled, or a Photos-managed Library subtree.";
+        host.appendChild(row);
+        continue; // no checkbox / nav / delete handlers
+      }
+      // Folder-name click navigates in; checkbox + action buttons don't.
+      if (e.is_dir) {
+        row.querySelector(".browse-name").addEventListener("click", () => {
+          state.browsePath = e.path;
+          refreshBrowse();
+        });
+      }
+      const cb = row.querySelector('input[type="checkbox"]');
+      cb.addEventListener("change", () => {
+        if (cb.checked) {
+          // For folders we record sentinel size 0 — real byte counts
+          // come from the backend ExpandRemoteSelection walk.
+          state.browseSelected[e.path] = e.is_dir ? 0 : e.size;
+          state.browseSelectedIsDir[e.path] = !!e.is_dir;
+        } else {
+          delete state.browseSelected[e.path];
+          delete state.browseSelectedIsDir[e.path];
+        }
+        renderBrowseSummary();
+      });
+      row.querySelector('[data-act="delete"]').addEventListener("click", async () => {
+        const ok = await confirmAction(
+          e.is_dir ? "Delete this folder?" : "Delete this file?",
+          (e.is_dir
+            ? `"${e.name}" and EVERYTHING inside it will be removed from your iPhone over USB.`
+            : `"${e.name}" will be removed from your iPhone over USB.`) +
+          "\n\nThis cannot be undone — there is no recycle bin on iOS.",
+          "Delete"
+        );
+        if (!ok) return;
+        try {
+          await window.go.gui.App.RemoteRemove(state.device.udid, e.path);
+          delete state.browseSelected[e.path];
+          delete state.browseSelectedIsDir[e.path];
+          toast("Deleted.");
+          refreshBrowse();
+        } catch (err) {
+          toast("Delete failed: " + (err.message || err), 8000);
+        }
+      });
+      host.appendChild(row);
+    }
+    // Footer hint when iOS hid entries — so the user knows this dir
+    // isn't truly empty and which subtree to skip going forward.
+    if (hiddenCount > 0) {
+      const note = document.createElement("div");
+      note.className = "browse-row hidden-note";
+      note.innerHTML = `<div class="muted small" style="grid-column: 1 / -1; padding: 6px 4px;">🔒 ${hiddenCount} entr${hiddenCount === 1 ? "y is" : "ies are"} hidden by iOS — accessing them over AFC requires Finder, jailbreak, or the app's own UI.</div>`;
+      host.appendChild(note);
+    }
+    renderBrowseSummary();
+  }
+  function renderBrowseSummary() {
+    const paths = Object.keys(state.browseSelected || {});
+    const folderCount = paths.filter((p) => state.browseSelectedIsDir[p]).length;
+    const fileCount   = paths.length - folderCount;
+    const total = paths.reduce((acc, p) => acc + (state.browseSelected[p] || 0), 0);
+    let summary;
+    if (!paths.length) {
+      summary = "No files selected.";
+    } else {
+      const parts = [];
+      if (fileCount)   parts.push(`${fileCount} file${fileCount   === 1 ? "" : "s"}`);
+      if (folderCount) parts.push(`${folderCount} folder${folderCount === 1 ? "" : "s"}`);
+      // Bytes are file-only; folder sizes are resolved at backup time.
+      summary = `${parts.join(" + ")} selected${total ? ` · ${humanBytes(total)} (files only — folders expand at backup time)` : ""}`;
+    }
+    $("#browse-summary").textContent = summary;
+    $("#btn-browse-pull").disabled = !paths.length;
+  }
+
+  // Render the Backups tab's "Saved backups" list. Each row shows
+  // device + path + last-completed + counts, plus action buttons:
+  // Open in Finder, Move…, Forget.
+  async function refreshBackupsList() {
+    let entries = [];
+    try { entries = await window.go.gui.App.ListBackups(); } catch (e) {
+      console.warn("ListBackups failed:", e);
+    }
+    const host = $("#backups-list");
+    const empty = $("#backups-list-empty");
+    if (!host) return;
+    host.querySelectorAll(".backup-row").forEach((n) => n.remove());
+    if (!entries || !entries.length) {
+      if (empty) empty.hidden = false;
+      return;
+    }
+    if (empty) empty.hidden = true;
+    for (const e of entries) {
+      const m = e.metadata || {};
+      const updated = m.updated_at ? new Date(m.updated_at) : null;
+      const updatedLabel = updated ? updated.toLocaleString() : "—";
+      const files = m.total_files || 0;
+      const bytes = humanBytes(m.total_bytes || 0);
+      const interruptedBadge = e.interrupted
+        ? `<span class="pill warning"><span class="dot"></span>Interrupted</span>` : "";
+      const missingBadge = !e.reachable
+        ? `<span class="pill danger"><span class="dot"></span>Unavailable${e.volume ? ` · plug ${e.volume} back in` : ""}</span>`
+        : "";
+      const row = document.createElement("div");
+      row.className = "backup-row" + (e.reachable ? "" : " unreachable");
+      row.innerHTML = `
+        <div class="backup-row-main">
+          <div class="backup-row-title">${escapeHTML(m.device_name || "iPhone")} ${interruptedBadge} ${missingBadge}</div>
+          <div class="backup-row-path">${escapeHTML(e.path)}</div>
+          <div class="backup-row-meta muted small">
+            ${files} files · ${bytes} · last updated ${updatedLabel}
+          </div>
+        </div>
+        <div class="backup-row-actions">
+          <button class="btn ghost small" data-act="reveal" ${e.reachable ? "" : "disabled"}>Reveal</button>
+          <button class="btn ghost small" data-act="move">Move…</button>
+          <button class="btn ghost small" data-act="forget">Forget</button>
+        </div>
+      `;
+      row.querySelector("[data-act=reveal]").addEventListener("click", async () => {
+        try { await window.go.gui.App.RevealInFinder(e.path); }
+        catch (err) { toast("Could not open: " + (err.message || err)); }
+      });
+      row.querySelector("[data-act=move]").addEventListener("click", async () => {
+        try {
+          const picked = await window.go.gui.App.PickOutputFolder("Move backup to…");
+          if (!picked) return;
+          // Append the backup's leaf folder name so we land at <picked>/<name>.
+          const leaf = e.path.split("/").filter(Boolean).pop() || "DumpSock-backup";
+          const dst = picked.replace(/\/$/, "") + "/" + leaf;
+          toast("Moving…", 60000);
+          await window.go.gui.App.MoveBackup(e.path, dst);
+          toast("Moved to " + dst, 5000);
+          refreshBackupsList();
+        } catch (err) {
+          toast("Move failed: " + (err.message || err));
+        }
+      });
+      row.querySelector("[data-act=forget]").addEventListener("click", async () => {
+        if (!confirm("Forget this backup from the list? (Files on disk are not touched.)")) return;
+        try { await window.go.gui.App.ForgetBackup(e.path); refreshBackupsList(); }
+        catch (err) { toast("Forget failed: " + (err.message || err)); }
+      });
+      host.appendChild(row);
+    }
+  }
+  function escapeHTML(s) {
+    if (s == null) return "";
+    return String(s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
   function toast(msg, ms = 4500) {
     const t = $("#toast");
@@ -76,8 +327,13 @@
       showDeviceEmpty();
       return;
     }
+    // ONLY consider USB-connected devices. usbmuxd remembers Wi-Fi-paired
+    // iPhones and keeps reporting them as connection_type="Network" even
+    // after the cable is gone — picking one of those is the source of the
+    // "device looks connected when it's not" bug. AFC over network is not
+    // a path we support, so a Network-only device is functionally absent.
     const usb = devices.filter((d) => d.connection_type === "USB");
-    const picked = usb[0] || devices[0] || null;
+    const picked = usb[0] || null;
     if (!picked) {
       showDeviceEmpty();
       return;
@@ -106,6 +362,19 @@
       }
     }
     syncOutputPath();
+    // Resume-after-crash check: if there's a .dumpsock-session.json
+    // in the output dir, the previous backup didn't complete. Surface
+    // the option to resume (which is just a re-run — dedup handles it).
+    if (state.outputDir && !state.resumePromptShown) {
+      state.resumePromptShown = true;
+      try {
+        const s = await window.go.gui.App.GetInterruptedSession(state.outputDir);
+        if (s && s.total_jobs) {
+          const pct = s.bytes_total ? Math.floor(100 * (s.bytes_pulled || 0) / s.bytes_total) : 0;
+          toast(`Your last backup was interrupted (${s.done || 0}/${s.total_jobs} files, ~${pct}% done). Click "Dump it" to resume.`, 8000);
+        }
+      } catch {}
+    }
     // Refresh storage on first connect and at most every 10s afterward —
     // AFC DeviceInfo is cheap but we don't need to flood it.
     const now = Date.now();
@@ -225,7 +494,11 @@
   // ── pull flow ────────────────────────────────────────────────────
 
   function readPullForm(deleteConfirmed) {
-    const wantsDelete = $("#delete-after").checked;
+    // Two surfaces feed delete-after: the original Settings checkbox
+    // and the Dashboard quick-action. Either one true is enough.
+    const wantsDelete = $("#delete-after").checked || $("#dash-delete-after").checked;
+    const wantsCompress = $("#dash-compress").checked;
+    const wantsEncrypt = $("#dash-encrypt").checked;
     return {
       udid: (state.device && state.device.udid) || "",
       output_root: state.outputDir,
@@ -238,18 +511,133 @@
       dry_run: $("#dry-run").checked,
       delete_after: wantsDelete && !!deleteConfirmed,
       confirm_delete: wantsDelete && !!deleteConfirmed,
+      // Encryption implies compression — we encrypt the produced zip.
+      compress: wantsCompress || wantsEncrypt,
+      password: wantsEncrypt ? (state.backupPassword || "") : "",
     };
   }
   async function startPull() {
-    const wantsDelete = $("#delete-after").checked;
+    const wantsDelete = $("#delete-after").checked || $("#dash-delete-after").checked;
+    const wantsEncrypt = $("#dash-encrypt").checked;
     if (!state.device) { toast("Plug an iPhone in first."); return; }
-    if (!state.outputDir) {
-      toast("Pick an output folder in Settings first.");
-      setTab("settings");
-      return;
+    if (!(await ensureOutputDir())) return;
+    if (wantsEncrypt) {
+      // Prompt for password BEFORE any destructive choice (delete-after
+      // confirm) so the user can back out without nuking phone state.
+      const pw = await promptPassword();
+      if (pw === null) return; // user cancelled
+      state.backupPassword = pw;
+    } else {
+      state.backupPassword = "";
     }
     if (wantsDelete) { $("#delete-confirm").hidden = false; return; }
     await launchBackup(false);
+  }
+
+  // In-app confirm modal. Substitute for window.confirm() — the
+  // native confirm dialog doesn't surface reliably inside the Wails
+  // webview on macOS (operator reported "delete never works" 2026-05-17;
+  // the confirm() was silently returning falsy). Returns a Promise that
+  // resolves to true (OK) or false (Cancel).
+  function confirmAction(title, body, okLabel) {
+    return new Promise((resolve) => {
+      const veil = $("#confirm-modal");
+      const btnOk = $("#btn-confirm-ok");
+      const btnCancel = $("#btn-confirm-cancel");
+      $("#confirm-title").textContent = title || "Are you sure?";
+      $("#confirm-body").textContent  = body  || "";
+      if (okLabel) btnOk.textContent = okLabel; else btnOk.textContent = "Confirm";
+      veil.hidden = false;
+      const cleanup = (val) => {
+        veil.hidden = true;
+        btnOk.onclick = null;
+        btnCancel.onclick = null;
+        resolve(val);
+      };
+      btnOk.onclick = () => cleanup(true);
+      btnCancel.onclick = () => cleanup(false);
+    });
+  }
+
+  // Inline password prompt — two matching entries required. Returns the
+  // password string on success, null on cancel.
+  function promptPassword() {
+    return new Promise((resolve) => {
+      const veil = $("#password-modal");
+      const inp1 = $("#password-input");
+      const inp2 = $("#password-confirm");
+      const err  = $("#password-error");
+      const btnOk = $("#btn-password-ok");
+      const btnCancel = $("#btn-password-cancel");
+      inp1.value = ""; inp2.value = ""; err.textContent = "";
+      veil.hidden = false;
+      setTimeout(() => inp1.focus(), 50);
+      const cleanup = (val) => {
+        veil.hidden = true;
+        btnOk.onclick = null;
+        btnCancel.onclick = null;
+        resolve(val);
+      };
+      btnOk.onclick = () => {
+        const a = inp1.value, b = inp2.value;
+        if (!a) { err.textContent = "Password required."; return; }
+        if (a.length < 8) { err.textContent = "Use at least 8 characters."; return; }
+        if (a !== b) { err.textContent = "The two passwords don't match."; return; }
+        cleanup(a);
+      };
+      btnCancel.onclick = () => cleanup(null);
+    });
+  }
+
+  // revealOutputDir() opens the destination in Finder. If the path is no
+  // longer accessible (drive unplugged, folder deleted), it routes through
+  // ensureOutputDir() instead of barking a raw stat error toast.
+  async function revealOutputDir() {
+    if (!state.outputDir) {
+      // No path yet — treat the action as "pick where to back up".
+      await ensureOutputDir();
+      return;
+    }
+    let exists = false;
+    try { exists = await window.go.gui.App.PathExists(state.outputDir); }
+    catch {}
+    if (!exists) {
+      toast("That backup folder isn't reachable — pick a new one.");
+      if (!(await ensureOutputDir())) return;
+    }
+    try { await window.go.gui.App.RevealInFinder(state.outputDir); }
+    catch (e) { toast("Couldn't open the folder: " + (e.message || e)); }
+  }
+
+  // ensureOutputDir() resolves the backup destination right before a run.
+  // If no path is set, OR the saved path doesn't exist on disk (drive
+  // unplugged, folder deleted, moved off-volume), open the native picker
+  // so the user can choose a fresh location. Returns true if state.outputDir
+  // is usable when it returns, false if the user cancelled.
+  async function ensureOutputDir() {
+    let p = state.outputDir;
+    let exists = false;
+    if (p) {
+      try { exists = await window.go.gui.App.PathExists(p); }
+      catch { exists = false; }
+    }
+    if (exists) return true;
+
+    toast(p
+      ? "Saved backup folder isn't there anymore — pick a new one."
+      : "Pick where to save the backup."
+    );
+    try {
+      const dir = await window.go.gui.App.PickDirectory("Choose backup folder");
+      if (!dir) return false;
+      state.outputDir = dir;
+      syncOutputPath();
+      try { await window.go.gui.App.SaveLastOutput(dir); } catch {}
+      return true;
+    } catch (e) {
+      toast("Couldn't open the folder picker: " + (e.message || e));
+      return false;
+    }
   }
   async function launchBackup(deleteConfirmed) {
     const req = readPullForm(deleteConfirmed);
@@ -283,11 +671,22 @@
       default:         return ev.phase;
     }
   }
+  // Human-readable byte count. Matches the rest of the GUI's unit display.
+  function fmtBytes(n) {
+    if (!Number.isFinite(n) || n <= 0) return "0 B";
+    const u = ["B", "KB", "MB", "GB", "TB"];
+    let i = 0;
+    while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+    return (i === 0 ? n.toString() : n.toFixed(n >= 100 ? 0 : n >= 10 ? 1 : 2)) + " " + u[i];
+  }
   function resetProgressUI() {
     $("#progress-phase").textContent = "Connecting…";
     $("#progress-fill").style.width = "0%";
+    $("#count-bytes-done").textContent = "0 B";
+    $("#count-bytes-total").textContent = "0 B";
     $("#count-done").textContent = "0";
     $("#count-total").textContent = "0";
+    $("#count-remaining").textContent = "0";
     $("#count-rate").textContent = "";
     $("#current-file").textContent = "—";
     ["pulled","skipped","suffixed","nodate","errors"].forEach((k) => { $("#s-"+k).textContent = "0"; });
@@ -297,9 +696,20 @@
   }
   function onProgress(ev) {
     $("#progress-phase").textContent = fmtPhase(ev);
+    // Progress bar tracks BYTES (more honest than file count when files
+    // are wildly different sizes — a 1.6 GB MOV among 800 thumbnails).
+    // Fall back to file count if the engine hasn't emitted bytes yet.
+    if (typeof ev.bytes_total === "number" && ev.bytes_total > 0) {
+      $("#progress-fill").style.width = pct(ev.bytes_pulled || 0, ev.bytes_total) + "%";
+      $("#count-bytes-done").textContent  = fmtBytes(ev.bytes_pulled || 0);
+      $("#count-bytes-total").textContent = fmtBytes(ev.bytes_total);
+    } else if (ev.total) {
+      $("#progress-fill").style.width = pct(ev.done || 0, ev.total) + "%";
+    }
     if (ev.total) {
       $("#count-total").textContent = ev.total;
-      $("#progress-fill").style.width = pct(ev.done || 0, ev.total) + "%";
+      const done = ev.done || 0;
+      $("#count-remaining").textContent = Math.max(0, ev.total - done);
     }
     if (typeof ev.done === "number") $("#count-done").textContent = ev.done;
     if (ev.current) $("#current-file").textContent = ev.current;
@@ -341,9 +751,20 @@
       if (r.Deleted) parts.push(r.Deleted + " deleted from device");
       if (r.DeleteErrors) parts.push(r.DeleteErrors + " delete errors");
       if (r.Errors) parts.push(r.Errors + " errors");
+      // Compression / encryption status (task #7 / #20). The backend
+      // attaches `zip_path`, `encrypted_path`, and/or `package_error`
+      // to the done payload. We extend the summary so the user can SEE
+      // that the .zip or .zip.aes was actually produced (and where).
+      if (payload.package_error) {
+        parts.push("packaging failed (" + payload.package_error + ")");
+      } else if (payload.encrypted_path) {
+        parts.push("encrypted → " + payload.encrypted_path.split("/").slice(-1)[0]);
+      } else if (payload.zip_path) {
+        parts.push("zipped → " + payload.zip_path.split("/").slice(-1)[0]);
+      }
       $("#done-summary").textContent = parts.join(" · ");
       $("#done-hint").hidden = !(r.Deleted > 0);
-      const success = !r.Errors && !r.DeleteErrors;
+      const success = !r.Errors && !r.DeleteErrors && !payload.package_error;
       const warned  = (r.Errors || 0) + (r.DeleteErrors || 0) > 0 && r.Pulled > 0;
       recordJob({
         status: success ? "Success" : (warned ? "Warning" : "Failed"),
@@ -355,7 +776,20 @@
       // Update Last Backup card on the dashboard
       $("#last-backup-time").textContent = "Just now";
       $("#last-backup-status").hidden = false;
-      $("#last-backup-detail").textContent = (state.outputDir || "—") + " · " + parts.join(" · ");
+      // Prefer showing the packaged artifact path when one exists so the
+      // user can find the .zip/.zip.aes file. Falls back to outputDir.
+      $("#last-backup-detail").textContent =
+        payload.encrypted_path || payload.zip_path || state.outputDir || "—";
+      // Reveal the "View in Finder" button only once a real backup has run.
+      const revealBtn = $("#btn-reveal-output");
+      if (revealBtn) revealBtn.hidden = false;
+      // Toast the artifact path explicitly — the done-banner can be
+      // missed if the user has already switched tabs.
+      if (payload.encrypted_path) {
+        toast("Encrypted archive at: " + payload.encrypted_path, 8000);
+      } else if (payload.zip_path) {
+        toast("Archive at: " + payload.zip_path, 8000);
+      }
     }
   }
   function estimateJobBytes(r) {
@@ -565,9 +999,11 @@
 
     const btnRevealOutput = $("#btn-reveal-output");
     if (btnRevealOutput) {
-      btnRevealOutput.addEventListener("click", async () => {
-        try { await window.go.gui.App.RevealInFinder(state.outputDir); }
-        catch (e) { toast("Couldn't open the folder: " + (e.message || e)); }
+      btnRevealOutput.addEventListener("click", async (ev) => {
+        // Card-level handler also catches the click; stop bubble to avoid
+        // running both handlers and double-opening Finder.
+        ev.stopPropagation();
+        await revealOutputDir();
       });
     }
 
@@ -580,11 +1016,140 @@
 
     // Backups / Progress
     $("#btn-cancel").addEventListener("click", cancelPull);
-    $("#btn-reveal").addEventListener("click", async () => {
-      try { await window.go.gui.App.RevealInFinder(state.outputDir); }
-      catch (e) { toast("Couldn't open the folder: " + (e.message || e)); }
-    });
+    $("#btn-reveal").addEventListener("click", revealOutputDir);
     $("#btn-again").addEventListener("click", () => setTab("dashboard"));
+
+    // Dashboard pull-options: Password-protect is meaningless without
+    // a .zip to encrypt (the engine encrypts the produced archive, not
+    // a folder tree), so disable it whenever Compress is unchecked.
+    // Unchecking Compress while Encrypt was on also clears Encrypt so
+    // the user can't end up with a stale "encrypt: yes / compress: no"
+    // state on submit.
+    const compressCb = $("#dash-compress");
+    const encryptCb  = $("#dash-encrypt");
+    function syncEncryptState() {
+      if (!compressCb || !encryptCb) return;
+      const enabled = compressCb.checked;
+      encryptCb.disabled = !enabled;
+      const label = encryptCb.closest("label");
+      if (label) label.classList.toggle("disabled", !enabled);
+      if (!enabled) encryptCb.checked = false;
+    }
+    if (compressCb) compressCb.addEventListener("change", syncEncryptState);
+    syncEncryptState();
+
+    // Backups list
+    const btnRefreshBackups = $("#btn-refresh-backups");
+    if (btnRefreshBackups) btnRefreshBackups.addEventListener("click", refreshBackupsList);
+
+    // Storage breakdown click-through → Browse tab (item 9). Each legend
+    // row carries a data-browse-to AFC path; clicking it navigates the
+    // browser there. We use event delegation so segments added later
+    // (e.g. dynamic re-render) also get the handler.
+    document.body.addEventListener("click", (ev) => {
+      const row = ev.target.closest("[data-browse-to]");
+      if (!row) return;
+      if (!state.device) { toast("Plug an iPhone in first."); return; }
+      state.browsePath = row.dataset.browseTo || "/";
+      setTab("browse");
+    });
+
+    // Donut segments themselves are clickable too — point all media
+    // segments at /DCIM (apps/other → root). Same delegation pattern.
+    const seg2path = { "seg-photos": "/DCIM", "seg-videos": "/DCIM", "seg-apps": "/", "seg-other": "/" };
+    Object.keys(seg2path).forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.style.cursor = "pointer";
+      el.addEventListener("click", () => {
+        if (!state.device) { toast("Plug an iPhone in first."); return; }
+        state.browsePath = seg2path[id];
+        setTab("browse");
+      });
+    });
+
+    // Browse source switcher (device vs app)
+    document.querySelectorAll('input[name="browse-source"]').forEach((r) => {
+      r.addEventListener("change", async () => {
+        state.browseSource = r.value;
+        state.browsePath = "/";
+        state.browseSelected = {};
+        renderBrowseSummary();
+        const picker = $("#browse-app-picker");
+        if (state.browseSource === "app") {
+          picker.hidden = false;
+          // Populate picker with file-sharing apps (lazy, on first use).
+          if (state.device && picker.options.length <= 1) {
+            picker.innerHTML = '<option value="">Loading apps…</option>';
+            try {
+              const apps = await window.go.gui.App.ListFileSharingApps(state.device.udid);
+              picker.innerHTML = '<option value="">Choose an app…</option>' +
+                apps.map((ap) =>
+                  `<option value="${ap.bundle_id}">${escapeHTML(ap.name || ap.bundle_id)} (${ap.bundle_id})</option>`
+                ).join("");
+            } catch (e) {
+              picker.innerHTML = `<option value="">${escapeHTML("Error: " + (e.message || e))}</option>`;
+            }
+          }
+        } else {
+          picker.hidden = true;
+          refreshBrowse();
+        }
+      });
+    });
+    const browseAppPicker = $("#browse-app-picker");
+    if (browseAppPicker) browseAppPicker.addEventListener("change", () => {
+      state.browseAppBundle = browseAppPicker.value;
+      state.browsePath = "/";
+      state.browseSelected = {};
+      refreshBrowse();
+    });
+
+    // Browse iPhone tab
+    const btnBrowseUp = $("#browse-up");
+    if (btnBrowseUp) btnBrowseUp.addEventListener("click", () => {
+      const p = state.browsePath || "/";
+      if (p === "/" || p === "") return;
+      const parts = p.split("/").filter(Boolean);
+      parts.pop();
+      state.browsePath = parts.length ? "/" + parts.join("/") : "/";
+      refreshBrowse();
+    });
+    const btnBrowseRefresh = $("#browse-refresh");
+    if (btnBrowseRefresh) btnBrowseRefresh.addEventListener("click", refreshBrowse);
+    const btnBrowsePull = $("#btn-browse-pull");
+    if (btnBrowsePull) btnBrowsePull.addEventListener("click", async () => {
+      const selected = Object.keys(state.browseSelected);
+      if (!selected.length) { toast("Select at least one file or folder first."); return; }
+      if (!state.device) { toast("Plug an iPhone in first."); return; }
+      if (!(await ensureOutputDir())) return;
+      const hasFolder = selected.some((p) => state.browseSelectedIsDir[p]);
+      let flatPaths = selected;
+      if (hasFolder) {
+        // Expand folders to their full file list via the backend so the
+        // engine's OnlyPaths receives plain file paths.
+        toast("Expanding folder selection…", 60000);
+        try {
+          const entries = await window.go.gui.App.ExpandRemoteSelection(state.device.udid, selected);
+          flatPaths = entries.map((e) => e.path);
+          toast(`Expanded to ${flatPaths.length} file${flatPaths.length === 1 ? "" : "s"}.`, 3000);
+        } catch (err) {
+          toast("Could not expand folder selection: " + (err.message || err));
+          return;
+        }
+        if (!flatPaths.length) { toast("Folder selection expanded to zero files."); return; }
+      }
+      const form = readPullForm(false);
+      form.only_paths = flatPaths;
+      setTab("backups");
+      try {
+        await window.go.gui.App.StartBackup(form);
+        state.backupActive = true;
+        resetProgressUI();
+      } catch (e) {
+        toast("Couldn't start: " + (e.message || e));
+      }
+    });
 
     // Logs
     const btnClearLog = $("#btn-clear-log");
@@ -635,6 +1200,46 @@
           setTimeout(runCompare, 120);
         }
       });
+    });
+
+    // Device row click → open Finder at the home folder and tell the
+    // user where to find their iPhone. We don't try to auto-select the
+    // iPhone in Finder's sidebar (Finder's AppleScript dictionary has no
+    // `sidebar` property; System Events GUI-scripting works but would
+    // require an Accessibility TCC prompt).
+    const deviceRow = $("#device-row");
+    if (deviceRow) deviceRow.addEventListener("click", async () => {
+      const dev = state.device || {};
+      try {
+        await window.go.gui.App.RevealDeviceInFinder(dev.name || "");
+        toast("Opened Finder. Your iPhone is in the sidebar under Locations — click it there to manage.", 5500);
+      } catch (e) {
+        toast("Couldn't open Finder: " + (e.message || e));
+      }
+    });
+
+    // Last-backup card click → open the destination in Finder, with
+    // graceful fallback to the picker if the drive isn't mounted.
+    const lastBackupCard = $("#last-backup-card");
+    if (lastBackupCard) lastBackupCard.addEventListener("click", async (ev) => {
+      if (ev.target.closest("button")) return;
+      await revealOutputDir();
+    });
+
+    // Sidebar "Help & Docs" anchor (target="_blank") — Wails' webview
+    // doesn't open new browser windows for anchors. Intercept and shell
+    // out to the system browser via runtime.BrowserOpenURL.
+    document.body.addEventListener("click", (ev) => {
+      const a = ev.target && ev.target.closest && ev.target.closest("a[href]");
+      if (!a) return;
+      const href = a.getAttribute("href");
+      if (!href || href === "#" || href.startsWith("#")) return;
+      if (/^(https?:|mailto:)/i.test(href)) {
+        ev.preventDefault();
+        if (window.runtime && window.runtime.BrowserOpenURL) {
+          window.runtime.BrowserOpenURL(href);
+        }
+      }
     });
   }
   function bindRuntime() {

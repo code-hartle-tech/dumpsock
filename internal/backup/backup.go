@@ -71,7 +71,12 @@ type ProgressEvent struct {
 	Errors       int    `json:"errors,omitempty"`
 	Deleted      int    `json:"deleted,omitempty"`
 	DeleteErrors int    `json:"delete_errors,omitempty"`
-	BytesPulled  int64  `json:"bytes_pulled,omitempty"`
+	// Byte-level progress — drives the byte-based GUI bar. BytesTotal is
+	// the sum of remote.Size across all planned jobs (set in the planning
+	// event and stable thereafter); BytesPulled is the cumulative bytes
+	// successfully landed at the destination.
+	BytesTotal  int64 `json:"bytes_total,omitempty"`
+	BytesPulled int64 `json:"bytes_pulled,omitempty"`
 }
 
 // Options drives a single Run() invocation. Most fields map 1:1 to the
@@ -101,6 +106,13 @@ type Options struct {
 	// consumer) to surface structured progress. Called from arbitrary
 	// goroutines — must be concurrency-safe.
 	OnProgress func(ProgressEvent)
+
+	// OnlyPaths, when non-empty, restricts the pull to exactly these
+	// AFC paths. Used by the GUI Browse tab to back up a hand-picked
+	// selection rather than everything under RemoteRoot. Each entry
+	// must be an absolute AFC path to a regular file. When set, the
+	// engine skips the recursive Walk and stats each path directly.
+	OnlyPaths []string
 }
 
 func (o *Options) emit(ev ProgressEvent) {
@@ -170,23 +182,44 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	}
 	fmt.Fprintf(opts.Out, "indexed %d existing files\n", ix.Count())
 
-	opts.emit(ProgressEvent{Phase: "walking", Message: opts.RemoteRoot})
-	fmt.Fprintf(opts.Out, "walking remote %s/ ...\n", opts.RemoteRoot)
-	// Walk media + sidecars in one pass; partition below. Sidecars are
-	// only used to queue companion deletes — they're never pulled.
-	allEntries, err := cl.Walk(opts.RemoteRoot, extUnion(MediaExts, SidecarExts))
-	if err != nil {
-		return Result{}, fmt.Errorf("walk remote: %w", err)
-	}
 	var files []afc.File
 	sidecarsByStem := make(map[string]string)
-	for _, f := range allEntries {
-		ext := strings.ToLower(filepath.Ext(f.Name))
-		switch {
-		case SidecarExts[ext]:
-			sidecarsByStem[stemPath(f.Path)] = f.Path
-		case MediaExts[ext]:
-			files = append(files, f)
+
+	if len(opts.OnlyPaths) > 0 {
+		// Browse-tab selection path: stat each chosen path directly,
+		// skip the recursive walk. Sidecars stay empty — selective
+		// pulls don't auto-include the .AAE/.MOV partners.
+		opts.emit(ProgressEvent{Phase: "walking", Message: fmt.Sprintf("%d selected", len(opts.OnlyPaths))})
+		fmt.Fprintf(opts.Out, "selective pull: %d remote paths\n", len(opts.OnlyPaths))
+		for _, p := range opts.OnlyPaths {
+			info, err := cl.Stat(p)
+			if err != nil {
+				fmt.Fprintf(opts.Err, "  ERROR stat %s: %v\n", p, err)
+				continue
+			}
+			if info.IsDir() {
+				fmt.Fprintf(opts.Err, "  skip dir (selective pull is file-only): %s\n", p)
+				continue
+			}
+			files = append(files, afc.File{Path: p, Name: filepath.Base(p), Size: info.Size})
+		}
+	} else {
+		opts.emit(ProgressEvent{Phase: "walking", Message: opts.RemoteRoot})
+		fmt.Fprintf(opts.Out, "walking remote %s/ ...\n", opts.RemoteRoot)
+		// Walk media + sidecars in one pass; partition below. Sidecars are
+		// only used to queue companion deletes — they're never pulled.
+		allEntries, err := cl.Walk(opts.RemoteRoot, extUnion(MediaExts, SidecarExts))
+		if err != nil {
+			return Result{}, fmt.Errorf("walk remote: %w", err)
+		}
+		for _, f := range allEntries {
+			ext := strings.ToLower(filepath.Ext(f.Name))
+			switch {
+			case SidecarExts[ext]:
+				sidecarsByStem[stemPath(f.Path)] = f.Path
+			case MediaExts[ext]:
+				files = append(files, f)
+			}
 		}
 	}
 	res := Result{Total: len(files)}
@@ -240,12 +273,35 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 		consecutiveMatches = 0
 		jobs = append(jobs, job{remote: f})
 	}
+	// Sum total bytes for the byte-based progress bar.
+	var bytesTotal int64
+	for _, j := range jobs {
+		bytesTotal += j.remote.Size
+	}
 	fmt.Fprintf(opts.Out, "to pull: %d (pre-skipped: %d)\n", len(jobs), res.PreSkipped)
 	opts.emit(ProgressEvent{
 		Phase:      "planning",
 		Total:      len(jobs),
 		PreSkipped: res.PreSkipped,
+		BytesTotal: bytesTotal,
 	})
+
+	// Session sentinel: write a .dumpsock-session.json into the output
+	// dir as soon as we know the plan. If the app/machine goes down
+	// mid-pull, the file stays behind; on next launch the GUI/CLI can
+	// detect it and offer "resume" (which is functionally identical to
+	// re-running the pull — dedup already handles "skip what's there").
+	if !opts.DryRun && len(jobs) > 0 {
+		_ = WriteSession(opts.OutputRoot, Session{
+			UDID:       opts.UDID,
+			DeviceName: cl.DeviceName(),
+			StartedAt:  time.Now(),
+			OutputRoot: opts.OutputRoot,
+			RemoteRoot: opts.RemoteRoot,
+			TotalJobs:  len(jobs),
+			BytesTotal: bytesTotal,
+		})
+	}
 
 	if opts.DryRun {
 		for _, j := range jobs {
@@ -292,6 +348,7 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 	// phase as soon as the first file starts downloading. Without this, a
 	// large first file (e.g. a 1.6 GB MOV) would leave the GUI stuck on
 	// "Planning…" for a minute until the first pull completes.
+	var bytesPulled int64
 	if len(jobs) > 0 {
 		opts.emit(ProgressEvent{
 			Phase:      "pulling",
@@ -299,6 +356,7 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 			Total:      len(jobs),
 			Current:    jobs[0].remote.Name,
 			PreSkipped: res.PreSkipped,
+			BytesTotal: bytesTotal,
 		})
 	}
 	go func() {
@@ -312,10 +370,12 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 			// pull. Counter intentionally stays at i (files completed),
 			// not i+1, until the worker actually finishes processing.
 			opts.emit(ProgressEvent{
-				Phase:   "pulling",
-				Done:    i,
-				Total:   len(jobs),
-				Current: j.remote.Name,
+				Phase:       "pulling",
+				Done:        i,
+				Total:       len(jobs),
+				Current:     j.remote.Name,
+				BytesTotal:  bytesTotal,
+				BytesPulled: atomic.LoadInt64(&bytesPulled),
 			})
 			staged := filepath.Join(tmpRoot, sanitizeFilename(j.remote.Name))
 			if err := cl.PullTo(j.remote.Path, staged); err != nil {
@@ -428,6 +488,26 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 			mu.Unlock()
 
 			n := atomic.AddInt32(&processed, 1)
+			// Count bytes only for files that actually landed on disk —
+			// post-skipped / errored files don't count toward bytesPulled
+			// so the byte bar matches what's really on the destination.
+			bp := atomic.AddInt64(&bytesPulled, p.remote.Size)
+			// Update the session sentinel every 25 files so a mid-run
+			// crash leaves a near-current snapshot. Cheap (~1 KB write).
+			if int(n)%25 == 0 || int(n) == len(jobs) {
+				_ = WriteSession(opts.OutputRoot, Session{
+					UDID:        opts.UDID,
+					DeviceName:  cl.DeviceName(),
+					StartedAt:   t0,
+					OutputRoot:  opts.OutputRoot,
+					RemoteRoot:  opts.RemoteRoot,
+					TotalJobs:   len(jobs),
+					BytesTotal:  bytesTotal,
+					Done:        int(n),
+					BytesPulled: bp,
+					CurrentFile: p.remote.Name,
+				})
+			}
 			mu.Lock()
 			snap := ProgressEvent{
 				Phase:       "pulling",
@@ -441,6 +521,8 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 				NoDate:      res.NoDate,
 				Filtered:    res.Filtered,
 				Errors:      res.Errors,
+				BytesTotal:  bytesTotal,
+				BytesPulled: bp,
 			}
 			mu.Unlock()
 			opts.emit(snap)
@@ -469,6 +551,18 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 		notify.Send("DumpSock — backup complete", body)
 	}
 
+	// Clean completion — drop the session sentinel. (If we got here via
+	// ctx cancellation the deferred dest cleanup above already returned,
+	// so the sentinel stays behind, which is the whole point.)
+	_ = DeleteSession(opts.OutputRoot)
+
+	// Update the persistent .dumpsock.json metadata so the GUI's
+	// Backups list can show this directory next time the app launches.
+	if !opts.DryRun {
+		_ = RecordRun(opts.OutputRoot, opts.UDID, cl.DeviceName(),
+			res, atomic.LoadInt64(&bytesPulled), bytesTotal)
+	}
+
 	opts.emit(ProgressEvent{
 		Phase:        "done",
 		Done:         res.Pulled + res.PostSkipped + res.NoDate + res.Errors + res.Filtered,
@@ -482,6 +576,8 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 		Errors:       res.Errors,
 		Deleted:      res.Deleted,
 		DeleteErrors: res.DeleteErrors,
+		BytesTotal:   bytesTotal,
+		BytesPulled:  atomic.LoadInt64(&bytesPulled),
 	})
 
 	return res, nil

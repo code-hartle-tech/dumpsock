@@ -9,14 +9,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/danielpaulus/go-ios/ios"
+	goinstall "github.com/danielpaulus/go-ios/ios/installationproxy"
 
 	"github.com/code-hartle-tech/dumpsock/internal/afc"
 	"github.com/code-hartle-tech/dumpsock/internal/backup"
@@ -72,8 +76,8 @@ type Device struct {
 type BackupRequest struct {
 	UDID        string `json:"udid"`
 	OutputRoot  string `json:"output_root"`
-	Since       string `json:"since"`  // YYYY-MM-DD; empty = no lower bound
-	Until       string `json:"until"`  // YYYY-MM-DD; empty = no upper bound
+	Since       string `json:"since"` // YYYY-MM-DD; empty = no lower bound
+	Until       string `json:"until"` // YYYY-MM-DD; empty = no upper bound
 	Parallel    int    `json:"parallel"`
 	UntilFound  int    `json:"until_found"`
 	NoMtime     bool   `json:"no_mtime"`
@@ -81,6 +85,19 @@ type BackupRequest struct {
 	DryRun      bool   `json:"dry_run"`
 	DeleteAfter bool   `json:"delete_after"`
 	ConfirmDel  bool   `json:"confirm_delete"`
+
+	// Post-backup packaging (2026-05-17). When Compress=true we walk
+	// OutputRoot after a successful pull and emit a sibling .zip. When
+	// Password is non-empty we additionally AES-256-GCM the .zip into
+	// a .zip.aes file (key = PBKDF2-SHA256 of the password). Password
+	// implies Compress.
+	Compress bool   `json:"compress"`
+	Password string `json:"password,omitempty"`
+
+	// OnlyPaths, when non-empty, restricts the pull to exactly these
+	// remote AFC paths (set from the Browse tab's checkbox selection).
+	// When set, the engine skips the recursive DCIM walk entirely.
+	OnlyPaths []string `json:"only_paths,omitempty"`
 }
 
 // AppInfo carries static metadata to the UI for headers / about dialog.
@@ -133,12 +150,435 @@ func (a *App) GetConfig() Config {
 func (a *App) SaveLastOutput(path string) error {
 	a.mu.Lock()
 	a.cfg.LastOutput = path
+	// Also remember it in the KnownBackups list so it shows up in the
+	// Backups tab. Dedup on insert.
+	if path != "" {
+		seen := false
+		for _, p := range a.cfg.KnownBackups {
+			if p == path {
+				seen = true
+				break
+			}
+		}
+		if !seen {
+			a.cfg.KnownBackups = append(a.cfg.KnownBackups, path)
+		}
+	}
 	c := a.cfg
 	a.mu.Unlock()
 	if err := saveConfig(c); err != nil {
 		return fmt.Errorf("could not persist last-output: %w", err)
 	}
 	return nil
+}
+
+// BackupEntry is one row in the Backups tab — combines the registry
+// path with whatever .dumpsock.json metadata we can find at it.
+type BackupEntry struct {
+	Path       string            `json:"path"`
+	Reachable  bool              `json:"reachable"`
+	Volume     string            `json:"volume,omitempty"`
+	Metadata   *backup.Metadata  `json:"metadata,omitempty"`
+	Interrupted *backup.Session  `json:"interrupted,omitempty"`
+}
+
+// ListBackups returns one BackupEntry per directory in KnownBackups,
+// in newest-completion-first order. Entries whose path is unreachable
+// (volume unplugged, directory deleted) still appear — the GUI shows
+// them with a "plug the disk back in" hint.
+func (a *App) ListBackups() ([]BackupEntry, error) {
+	a.mu.Lock()
+	paths := append([]string(nil), a.cfg.KnownBackups...)
+	a.mu.Unlock()
+
+	out := make([]BackupEntry, 0, len(paths))
+	for _, p := range paths {
+		entry := BackupEntry{Path: p}
+		if fi, err := os.Stat(p); err == nil && fi.IsDir() {
+			entry.Reachable = true
+			if md, _ := backup.ReadMetadata(p); md != nil {
+				entry.Metadata = md
+			}
+			if s, _ := backup.ReadSession(p); s != nil {
+				entry.Interrupted = s
+			}
+		}
+		entry.Volume = volumeHint(p)
+		out = append(out, entry)
+	}
+	// Sort: reachable first, then by most-recent update.
+	for i := 0; i < len(out); i++ {
+		for j := i + 1; j < len(out); j++ {
+			if !out[i].Reachable && out[j].Reachable {
+				out[i], out[j] = out[j], out[i]
+				continue
+			}
+			ti, tj := backupSortKey(out[i]), backupSortKey(out[j])
+			if tj.After(ti) {
+				out[i], out[j] = out[j], out[i]
+			}
+		}
+	}
+	return out, nil
+}
+
+// backupSortKey returns the timestamp used to order Backups list rows.
+func backupSortKey(e BackupEntry) time.Time {
+	if e.Metadata != nil {
+		if !e.Metadata.UpdatedAt.IsZero() {
+			return e.Metadata.UpdatedAt
+		}
+		return e.Metadata.CreatedAt
+	}
+	return time.Time{}
+}
+
+// volumeHint returns a short label identifying the disk a path lives on.
+// macOS: "/Volumes/Lexar/..." → "Lexar". Used as a UX hint when the path
+// is unreachable ("Plug Lexar back in"). Empty string when we can't tell.
+func volumeHint(path string) string {
+	if path == "" {
+		return ""
+	}
+	cleaned := filepath.Clean(path)
+	if runtime.GOOS == "darwin" && strings.HasPrefix(cleaned, "/Volumes/") {
+		rest := strings.TrimPrefix(cleaned, "/Volumes/")
+		if i := strings.Index(rest, "/"); i > 0 {
+			return rest[:i]
+		}
+		return rest
+	}
+	return ""
+}
+
+// MoveBackup relocates a backup directory from src to dst (which the
+// user picks via a folder dialog). Updates the KnownBackups registry
+// and rewrites the .dumpsock.json's OutputRoot to match the new path.
+//
+// First tries os.Rename — fast, atomic, works within one volume. Falls
+// back to a recursive copy + remove when the rename fails (cross-disk
+// move, ENOSPC, etc.).
+func (a *App) MoveBackup(src, dst string) error {
+	if src == "" || dst == "" {
+		return errors.New("MoveBackup: src and dst required")
+	}
+	if src == dst {
+		return errors.New("source and destination are the same")
+	}
+	if _, err := os.Stat(src); err != nil {
+		return fmt.Errorf("source unreachable: %w", err)
+	}
+	if _, err := os.Stat(dst); err == nil {
+		return fmt.Errorf("destination already exists: %s", dst)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return fmt.Errorf("mkdir destination parent: %w", err)
+	}
+
+	// Fast path: same-volume rename.
+	if err := os.Rename(src, dst); err != nil {
+		// Cross-device or permission — fall back to copy + remove.
+		if err := copyTree(src, dst); err != nil {
+			_ = os.RemoveAll(dst) // tidy partial copy
+			return fmt.Errorf("copy backup: %w", err)
+		}
+		if err := os.RemoveAll(src); err != nil {
+			return fmt.Errorf("copy ok but source removal failed: %w", err)
+		}
+	}
+
+	// Rewrite metadata so OutputRoot in .dumpsock.json reflects new home.
+	if md, _ := backup.ReadMetadata(dst); md != nil {
+		md.OutputRoot = dst
+		_ = backup.WriteMetadata(dst, *md)
+	}
+
+	a.mu.Lock()
+	for i, p := range a.cfg.KnownBackups {
+		if p == src {
+			a.cfg.KnownBackups[i] = dst
+		}
+	}
+	if a.cfg.LastOutput == src {
+		a.cfg.LastOutput = dst
+	}
+	c := a.cfg
+	a.mu.Unlock()
+	_ = saveConfig(c)
+	return nil
+}
+
+// ForgetBackup drops a path from the KnownBackups registry. Does not
+// touch the directory on disk — purely a UI/registry concept.
+func (a *App) ForgetBackup(path string) error {
+	a.mu.Lock()
+	kept := a.cfg.KnownBackups[:0]
+	for _, p := range a.cfg.KnownBackups {
+		if p != path {
+			kept = append(kept, p)
+		}
+	}
+	a.cfg.KnownBackups = kept
+	c := a.cfg
+	a.mu.Unlock()
+	return saveConfig(c)
+}
+
+// copyTree recursively copies src into dst (dst must not exist).
+// Preserves file mode, mtime, and directory layout.
+func copyTree(src, dst string) error {
+	return filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(src, p)
+		target := filepath.Join(dst, rel)
+		if d.IsDir() {
+			info, _ := d.Info()
+			mode := os.FileMode(0o755)
+			if info != nil {
+				mode = info.Mode().Perm()
+			}
+			return os.MkdirAll(target, mode)
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		in, err := os.Open(p)
+		if err != nil {
+			return err
+		}
+		defer in.Close()
+		out, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, info.Mode().Perm())
+		if err != nil {
+			return err
+		}
+		if _, err := io.Copy(out, in); err != nil {
+			_ = out.Close()
+			return err
+		}
+		if err := out.Close(); err != nil {
+			return err
+		}
+		_ = os.Chtimes(target, info.ModTime(), info.ModTime())
+		return nil
+	})
+}
+
+// BrowseRemote returns the immediate children of an AFC path (one level,
+// not recursive). Used by the Browse tab to render an iOS-Files-app-like
+// view scoped to the com.apple.afc media jail (/, /DCIM, /Books, …).
+//
+// Opens a short-lived AFC connection per call — fine for browsing
+// (latency is dominated by user clicks, not the connection setup).
+func (a *App) BrowseRemote(udid, remotePath string) ([]afc.Entry, error) {
+	if remotePath == "" {
+		remotePath = "/"
+	}
+	cl, err := afc.Open(udid)
+	if err != nil {
+		return nil, err
+	}
+	defer cl.Close()
+	return cl.List(remotePath)
+}
+
+// ExpandRemoteSelection takes a mixed list of file + folder remote
+// paths and returns the flat list of regular-file entries beneath
+// them. Used by the Browse tab to translate a folder-checkbox
+// selection into the file-only list `StartBackup`'s `OnlyPaths` field
+// expects.
+//
+// File paths come back unchanged; directory paths are recursively
+// walked via the underlying AFC Walk (no extension filter — the user
+// asked for the whole folder, we honor that).
+func (a *App) ExpandRemoteSelection(udid string, paths []string) ([]afc.Entry, error) {
+	if len(paths) == 0 {
+		return nil, nil
+	}
+	cl, err := afc.Open(udid)
+	if err != nil {
+		return nil, err
+	}
+	defer cl.Close()
+	out := make([]afc.Entry, 0, len(paths))
+	seen := make(map[string]bool)
+	for _, p := range paths {
+		info, err := cl.Stat(p)
+		if err != nil {
+			// Skip unreadable entries — the GUI will surface the count
+			// shortfall in its summary if any go missing.
+			continue
+		}
+		if !info.IsDir() {
+			if !seen[p] {
+				out = append(out, afc.Entry{Name: filepath.Base(p), Path: p, Size: info.Size})
+				seen[p] = true
+			}
+			continue
+		}
+		// Folder: walk it with no extension filter so the user gets
+		// exactly what they checked, not just media types.
+		files, err := cl.Walk(p, nil)
+		if err != nil {
+			continue
+		}
+		for _, f := range files {
+			if !seen[f.Path] {
+				out = append(out, afc.Entry{Name: f.Name, Path: f.Path, Size: f.Size})
+				seen[f.Path] = true
+			}
+		}
+	}
+	return out, nil
+}
+
+// RemoteRemove deletes a path on the device — file or folder. Folders
+// are removed recursively (RemoveAll). DESTRUCTIVE: there is no recycle
+// bin on iOS. The frontend must show a confirm dialog before calling.
+//
+// Post-delete verification: AFC's remove returns success on iOS even
+// when the file remains (iOS Photos reindex lag, NSFileProtectionClass
+// holds, or post-iOS-15 permission cliffs on subtrees like /PhotoData).
+// We re-Stat the path; if it still exists we surface that as an error
+// so the frontend can show an honest "iOS refused" instead of a
+// silent-failure "Deleted." toast.
+func (a *App) RemoteRemove(udid, remotePath string) error {
+	if remotePath == "" || remotePath == "/" {
+		return errors.New("refusing to remove empty or root path")
+	}
+	cl, err := afc.Open(udid)
+	if err != nil {
+		return fmt.Errorf("AFC open: %w", err)
+	}
+	defer cl.Close()
+	info, statErr := cl.Stat(remotePath)
+	if statErr != nil {
+		return fmt.Errorf("stat %s before delete: %w", remotePath, statErr)
+	}
+	wasDir := info.IsDir()
+	var rmErr error
+	if wasDir {
+		rmErr = cl.RemoveAll(remotePath)
+	} else {
+		rmErr = cl.Remove(remotePath)
+	}
+	if rmErr != nil {
+		return fmt.Errorf("AFC remove %s: %w", remotePath, rmErr)
+	}
+	// Verify. If the path still stats, iOS / AFC kept the file despite
+	// returning success — surface this honestly.
+	if _, postErr := cl.Stat(remotePath); postErr == nil {
+		return fmt.Errorf("iOS held onto %s (AFC reported success but path still exists — common on /PhotoData subtrees and Photos.app-managed entries; deletion from inside Photos is the workaround)", remotePath)
+	}
+	return nil
+}
+
+// FileSharingApp is one row in the "Browse → Apps" picker. Only apps
+// that ship `UIFileSharingEnabled=YES` in their Info.plist appear here
+// (DJI Fly, VLC, Procreate, Documents, GarageBand, etc.) — banking,
+// messaging, and system apps never publish the flag and aren't reachable
+// via House Arrest on a non-jailbroken phone.
+type FileSharingApp struct {
+	BundleID   string `json:"bundle_id"`
+	Name       string `json:"name"`
+	Executable string `json:"executable,omitempty"`
+	Version    string `json:"version,omitempty"`
+}
+
+// ListFileSharingApps enumerates third-party (App-Store-installed)
+// apps whose Info.plist has UIFileSharingEnabled=YES. The Browse tab
+// uses this to populate the "App data" picker.
+//
+// Why two filters: go-ios v1.0.213's `BrowseFileSharingApps` doesn't
+// actually filter the device-side response (the agent report claimed
+// otherwise; the source proves it sends `{Command: "Browse"}` with no
+// filter). Even after a host-side UIFileSharingEnabled check, Apple
+// system apps like com.apple.Fitness still appear — they declare the
+// flag but house_arrest refuses to vend them to third parties, so
+// every attempt fails with EOF or InstallationLookupFailed. Using
+// `BrowseUserApps` (ApplicationType=User on the device side) drops
+// system apps first; the host-side UIFileSharingEnabled check then
+// narrows to the actually-reachable subset.
+func (a *App) ListFileSharingApps(udid string) ([]FileSharingApp, error) {
+	dev, err := pickDevice(udid)
+	if err != nil {
+		return nil, err
+	}
+	conn, err := goinstall.New(dev)
+	if err != nil {
+		return nil, fmt.Errorf("installation_proxy: %w", err)
+	}
+	defer conn.Close()
+	apps, err := conn.BrowseUserApps()
+	if err != nil {
+		return nil, fmt.Errorf("browse user apps: %w", err)
+	}
+	out := make([]FileSharingApp, 0, len(apps))
+	for _, ai := range apps {
+		if !ai.UIFileSharingEnabled() {
+			continue
+		}
+		out = append(out, FileSharingApp{
+			BundleID:   ai.CFBundleIdentifier(),
+			Name:       ai.CFBundleName(),
+			Executable: ai.CFBundleExecutable(),
+			Version:    ai.CFBundleShortVersionString(),
+		})
+	}
+	return out, nil
+}
+
+// BrowseApp lists a single level inside a third-party app's data
+// container via the com.apple.mobile.house_arrest lockdownd service.
+// `relPath` is relative to the app's vended root (use "/" to start).
+//
+// Routes through afc.OpenAppContainer, which tries VendDocuments first
+// (works on production-signed apps with UIFileSharingEnabled=YES) and
+// falls back to VendContainer (dev-signed). Replaces an earlier
+// gohouse.New call that hardcoded VendContainer and failed with
+// InstallationLookupFailed on real-world App-Store apps like DJI GO
+// Lite (com.dji.golite).
+func (a *App) BrowseApp(udid, bundleID, relPath string) ([]afc.Entry, error) {
+	if bundleID == "" {
+		return nil, errors.New("BrowseApp: empty bundleID")
+	}
+	if relPath == "" {
+		relPath = "/"
+	}
+	cl, err := afc.OpenAppContainer(udid, bundleID)
+	if err != nil {
+		return nil, err
+	}
+	defer cl.Close()
+	return cl.List(relPath)
+}
+
+// pickDevice resolves a UDID to a go-ios DeviceEntry. Empty UDID picks
+// the only attached device. (Shared with afc.pickDevice in spirit but
+// re-implemented here to keep package boundaries clean.)
+func pickDevice(udid string) (ios.DeviceEntry, error) {
+	list, err := ios.ListDevices()
+	if err != nil {
+		return ios.DeviceEntry{}, fmt.Errorf("usbmuxd: %w", err)
+	}
+	if len(list.DeviceList) == 0 {
+		return ios.DeviceEntry{}, errors.New("no iPhone connected over USB")
+	}
+	if udid == "" {
+		if len(list.DeviceList) > 1 {
+			return ios.DeviceEntry{}, errors.New("multiple devices — pass --udid")
+		}
+		return list.DeviceList[0], nil
+	}
+	for _, d := range list.DeviceList {
+		if d.Properties.SerialNumber == udid {
+			return d, nil
+		}
+	}
+	return ios.DeviceEntry{}, fmt.Errorf("device %s not connected", udid)
 }
 
 // ListDevices enumerates iPhones reachable via usbmuxd. JS calls this on
@@ -264,6 +704,7 @@ func (a *App) StartBackup(req BackupRequest) (string, error) {
 			Notify:      !req.NoNotify,
 			DryRun:      req.DryRun,
 			DeleteAfter: req.DeleteAfter,
+			OnlyPaths:   req.OnlyPaths,
 			Out:         &eventWriter{ctx: a.ctx, event: "backup:log"},
 			Err:         &eventWriter{ctx: a.ctx, event: "backup:log"},
 			OnProgress: func(ev backup.ProgressEvent) {
@@ -275,6 +716,33 @@ func (a *App) StartBackup(req BackupRequest) (string, error) {
 		if err != nil {
 			payload["error"] = err.Error()
 		}
+
+		// Post-backup packaging. Compress=true → produce <outputRoot>.zip;
+		// Password non-empty → additionally encrypt to <outputRoot>.zip.aes
+		// and delete the intermediate plain zip. Skipped on error/dryrun
+		// since those don't write a complete tree.
+		if err == nil && !req.DryRun && (req.Compress || req.Password != "") {
+			wruntime.EventsEmit(a.ctx, "backup:progress",
+				backup.ProgressEvent{Phase: "packaging", Message: "compressing"})
+			zipPath, pErr := backup.PackageZip(ctx, opts.OutputRoot)
+			if pErr != nil {
+				payload["package_error"] = pErr.Error()
+			} else {
+				payload["zip_path"] = zipPath
+				if req.Password != "" {
+					wruntime.EventsEmit(a.ctx, "backup:progress",
+						backup.ProgressEvent{Phase: "packaging", Message: "encrypting"})
+					encPath, eErr := backup.EncryptFile(zipPath, req.Password)
+					if eErr != nil {
+						payload["package_error"] = eErr.Error()
+					} else {
+						_ = os.Remove(zipPath) // intermediate plain zip
+						payload["encrypted_path"] = encPath
+					}
+				}
+			}
+		}
+
 		wruntime.EventsEmit(a.ctx, "backup:done", payload)
 
 		a.mu.Lock()
@@ -332,6 +800,71 @@ func (a *App) RunCompare(udid, outputRoot string) (compare.Result, error) {
 		return compare.Result{}, err
 	}
 	return res, nil
+}
+
+// PathExists reports whether the given filesystem path is currently
+// reachable. Used by the GUI to validate a remembered output folder
+// before kicking off a backup — if the saved Lexar SSD isn't plugged in
+// or the directory got deleted, we want to open the picker rather than
+// fail mid-pull.
+func (a *App) PathExists(p string) bool {
+	if p == "" {
+		return false
+	}
+	_, err := os.Stat(p)
+	return err == nil
+}
+
+// GetInterruptedSession returns the .dumpsock-session.json sentinel
+// from outputDir if one is present (a previous backup that didn't
+// complete cleanly), or nil if the directory is in a quiescent state.
+// The frontend calls this on launch and shows a "your last run was
+// interrupted — resume?" prompt when something comes back.
+//
+// Resuming is functionally identical to re-running the pull at the
+// same output dir: dedup will skip everything already on disk, then
+// pull the remaining jobs. We rely on that property rather than
+// trying to replay a partial work queue.
+func (a *App) GetInterruptedSession(outputDir string) (*backup.Session, error) {
+	if outputDir == "" {
+		return nil, nil
+	}
+	return backup.ReadSession(outputDir)
+}
+
+// RevealDeviceInFinder brings Finder forward at a known-good location
+// so the user can click their iPhone in the sidebar's Locations section.
+//
+// Why not auto-select the iPhone? Finder's scripting dictionary has no
+// `sidebar` property, so `select first item of (sidebar of window 1)`
+// silently fails. The only working path is System Events GUI-scripting,
+// which requires the user to grant Accessibility permission via a TCC
+// prompt — disproportionate UX cost for a small convenience. (Earlier
+// versions tried the AppleScript route and ended up opening Finder at
+// "the default New Finder Window target", which for many users is the
+// folder where DumpSock.app lives — confusing.)
+//
+// We instead open Finder at the user's home folder and rely on a toast
+// in the frontend to tell the user where to look. Returns false so the
+// frontend always uses the "click your iPhone in the sidebar" copy.
+func (a *App) RevealDeviceInFinder(deviceName string) (bool, error) {
+	_ = deviceName // kept in the signature so frontend doesn't need a binding change
+	switch runtime.GOOS {
+	case "darwin":
+		home, _ := os.UserHomeDir()
+		if home == "" {
+			home = "/"
+		}
+		_ = exec.Command("open", home).Start()
+		return false, nil
+	case "linux":
+		_ = exec.Command("xdg-open", ".").Start()
+		return false, nil
+	case "windows":
+		_ = exec.Command("explorer", ".").Start()
+		return false, nil
+	}
+	return false, fmt.Errorf("RevealDeviceInFinder not implemented for %s", runtime.GOOS)
 }
 
 // RevealInFinder opens the destination folder in the platform's native

@@ -25,6 +25,13 @@ type Config struct {
 	// LastOutput is the folder the user last picked via the GUI's "Choose…"
 	// button. Empty on first launch.
 	LastOutput string `json:"last_output,omitempty"`
+
+	// KnownBackups is the union of every output directory that has ever
+	// hosted a completed DumpSock backup on this machine. Drives the
+	// Backups list. Entries that no longer exist on disk are kept in
+	// the registry (so the GUI can show "the Lexar SSD is unplugged"
+	// rather than silently dropping them); a UI button removes them.
+	KnownBackups []string `json:"known_backups,omitempty"`
 }
 
 const currentConfigVersion = 1

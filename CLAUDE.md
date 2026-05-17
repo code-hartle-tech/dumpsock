@@ -163,10 +163,19 @@ Dedup: name+size match anywhere under output → skip. Same name, different size
 
 ## Non-goals
 
-- **Cloud backup.** Use icloudpd for that. DumpSock is local-only.
-- **iOS jailbreak features.** DumpSock uses the same AFC protocol Finder/iMazing use. No SSH-to-iPhone, no MobileBackup2 (that's `idevicebackup2`'s job).
 - **Photo editing or library management.** Output is a folder of files. Apps like Photo Sync / PhotoSweeper take it from there.
 - **Multi-user / cloud sync of backups.** This is a single-user, single-machine tool.
+- **iOS jailbreak features.** DumpSock uses public lockdownd services (AFC, house_arrest, mobilebackup2). No SSH-to-iPhone, no `com.apple.afc2`.
+
+### Scope expansion 2026-05-17 — formerly non-goals, now Phase 6/7
+
+The original CLAUDE.md framing positioned DumpSock as strictly local-AFC. After operator review on 2026-05-17 the scope expanded:
+
+- **iCloud Photos download** is in scope as `dumpsock icloud pull` — an opt-in subcommand mirroring icloudpd's UX, NOT the default `dumpsock` experience. Phase 7. See `docs/phase-6-roadmap.md`.
+- **Full-device backup via MobileBackup2** is in scope as `dumpsock backup-device` — Finder/iTunes-equivalent backup tree. Phase 6. See `docs/phase-6-roadmap.md`.
+- **Restore from backup** is explicitly OUT of scope — Apple's third-party restore path is broken on iOS 17/18. Reframed as `dumpsock backup extract` (pull files out of a Manifest.db tree to a normal folder), which is what most "iPhone backup extractor" tools actually do.
+
+Local-AFC photo pull remains the **default** and the marketing pillar. Cloud + full-device backup are opt-in subcommands users have to ask for.
 
 ---
 
@@ -180,6 +189,10 @@ Dedup: name+size match anywhere under output → skip. Same name, different size
 | **3** | Localhost-bridge architecture; `dumpsock.app` static page talks to running CLI/GUI | future |
 | **4** | Codesigning / notarization / signed installers / SBOM / SLSA provenance | future |
 | **5** | Mobile-to-mobile: native Android app that ingests iPhone-over-OTG | future |
+| **6** | MobileBackup2 backup engine — `dumpsock backup-device` (Finder-equivalent full-device backup); pure-Go port of libimobiledevice's mobilebackup2 + device-link layers; encrypted-toggle via on-device Settings | scaffolded |
+| **7** | iCloud Photos download — `dumpsock icloud pull`; port pyicloud_ipd's SRP-6a auth + CloudKit Web Services queries; same YYYY-MM-DD/ output layout as `dumpsock pull` | scaffolded |
+| **8** | Backup inspection & extraction — `dumpsock backup extract`/`mount`; pull files OUT of a Manifest.db tree to a normal folder. (Restore-to-device is unfeasible on current iOS; dropped.) | future |
+| **9** | Unified storage dashboard — one device entity surfacing AFC pull + mb2 backup + iCloud sources together | future |
 
 Each phase ships its own release / batch; don't conflate them.
 

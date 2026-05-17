@@ -52,7 +52,7 @@
   --sidebar-w: 240px;
   --sidebar-item-h: 44px;
   --sidebar-icon: 24px;
-  --chrome-h: 36px;
+  --chrome-h: 24px;
   --max-w: 1280px;
   --gutter: 24px;
   --margin: 24px;
@@ -70,6 +70,12 @@
 
 * { box-sizing: border-box; }
 *:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+
+/* HTML's `hidden` attribute is defeated by any `display:` rule on the
+   element. We use `hidden` heavily for empty-state vs filled-state
+   toggling (device card, last-backup, modals…), so this reset wins
+   over every `display: flex/grid/block` further down. */
+[hidden] { display: none !important; }
 
 html, body {
   margin: 0; padding: 0;
@@ -95,49 +101,20 @@ a:hover { color: var(--primary-hover); text-decoration: underline; }
 
 img { image-rendering: -webkit-optimize-contrast; }
 
-/* ── window chrome ─────────────────────────────────────────────────── */
-
-.chrome {
-  --wails-draggable: drag;
-  height: var(--chrome-h);
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-left: 88px;
-  padding-right: 14px;
-  flex-shrink: 0;
-}
+/* ── window dragging ───────────────────────────────────────────────── */
+/* The chrome strip is gone (since 2026-05-17). The sidebar runs the full
+   window height and carries the [data-drag] flag so users can drag the
+   window by clicking any non-interactive part of the sidebar — including
+   the ~36px reservation at the top where macOS draws the traffic-light
+   buttons (HiddenInset title bar, see cmd/dumpsock-gui/main.go). */
 [data-drag] { --wails-draggable: drag; }
-[data-drag] *:not(button):not(input):not(label):not(.btn):not(.nav-item):not(.sidebar-link):not(.pill):not(a):not(.chrome-action) { --wails-draggable: drag; }
-
-.chrome-title {
-  font-family: var(--font-head);
-  font-size: var(--t-caption);
-  font-weight: 600;
-  color: var(--dark-gray);
-  letter-spacing: 0.01em;
-}
-.chrome-right { display: flex; gap: 6px; align-items: center; }
-.chrome-action {
-  background: transparent;
-  border: 0;
-  width: 28px; height: 28px;
-  border-radius: 8px;
-  display: grid; place-items: center;
-  color: var(--dark-gray);
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease);
-}
-.chrome-action:hover { background: var(--subtle); color: var(--ink); }
-.chrome-action svg { width: 18px; height: 18px; }
+[data-drag] *:not(button):not(input):not(label):not(.btn):not(.nav-item):not(.sidebar-link):not(.pill):not(a) { --wails-draggable: drag; }
 
 /* ── layout ────────────────────────────────────────────────────────── */
 
 .layout {
   display: flex;
-  height: calc(100% - var(--chrome-h));
+  height: 100%;
 }
 
 /* ── sidebar ───────────────────────────────────────────────────────── */
@@ -149,7 +126,10 @@ img { image-rendering: -webkit-optimize-contrast; }
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  padding: 22px 14px 14px;
+  /* Top padding leaves ~36px clearance for macOS traffic-light buttons
+     (which sit at roughly x=12..76, y=12..28 with HiddenInset). Same
+     14px gutter top/right/bottom/left so the border looks even. */
+  padding: 42px 14px 14px;
   overflow-y: auto;
 }
 
@@ -391,11 +371,10 @@ body[data-tab="settings"]  .nav-item[data-tab-target="settings"] {
 /* ── device card ───────────────────────────────────────────────────── */
 
 .device-empty {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+  display: block;
+  padding: 4px 0;
 }
-.mascot-sm { width: 56px; height: auto; }
+.device-empty-text { display: block; }
 .mascot-md { width: 96px; height: auto; }
 .device-empty-title {
   font-family: var(--font-head);
@@ -404,6 +383,14 @@ body[data-tab="settings"]  .nav-item[data-tab-target="settings"] {
   color: var(--ink);
   margin-bottom: 4px;
 }
+
+/* Cards that respond to a click — subtle hover affordance. */
+.clickable {
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.clickable:hover { background: var(--surface-hover, #FAFBFD); }
+.clickable:active { transform: translateY(0.5px); }
 
 .device-row {
   display: flex;
@@ -539,28 +526,26 @@ body[data-tab="settings"]  .nav-item[data-tab-target="settings"] {
 
 /* ── last backup ───────────────────────────────────────────────────── */
 
-.last-backup-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-.last-backup-body { flex: 1; }
+.last-backup-card { padding: 22px; }
+.last-backup-body { display: block; }
 .last-backup-time {
   font-family: var(--font-head);
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--ink);
-  margin-top: 6px;
-  margin-bottom: 4px;
+  margin: 4px 0 8px;
+}
+.last-backup-meta {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 .last-backup-filename {
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--dark-gray);
+  word-break: break-all;
 }
 
 /* ── pull CTA ──────────────────────────────────────────────────────── */
@@ -791,6 +776,171 @@ input[type="text"]:focus, input[type="date"]:focus {
   color: var(--ink);
 }
 .progress-counts b { font-family: var(--font-head); }
+.progress-files-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--dark-gray);
+}
+.progress-files-line b {
+  color: var(--ink);
+  font-family: var(--font-head);
+  font-weight: 700;
+}
+
+/* ── backups list ──────────────────────────────────────────────────── */
+.backups-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.backup-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  background: var(--subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-input);
+}
+.backup-row.unreachable { opacity: 0.7; }
+.backup-row-main { flex: 1; min-width: 0; }
+.backup-row-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.backup-row-path {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--dark-gray);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.backup-row-meta { margin-top: 4px; }
+.backup-row-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.backup-row-actions .btn { white-space: nowrap; }
+
+/* ── dashboard pull-options ────────────────────────────────────────── */
+.pull-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0 14px;
+  padding: 12px 14px;
+  background: var(--subtle);
+  border-radius: var(--radius-input);
+}
+.check.compact { font-size: 12px; padding: 4px 0; }
+.check.compact b { font-weight: 600; }
+/* Grayed-out state for dependent checkboxes (e.g. Password-protect
+   when Compress is unchecked). JS toggles `.disabled` on the <label>. */
+.check.disabled { opacity: 0.48; pointer-events: none; }
+.check.disabled b { color: var(--dark-gray); }
+
+.text-input {
+  width: 100%;
+  height: var(--input-h);
+  padding: 0 12px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-input);
+  outline: none;
+  margin-bottom: 8px;
+}
+.text-input:focus { border-color: var(--primary); }
+.field-label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--dark-gray);
+  margin: 4px 0 4px;
+}
+.password-error { color: var(--danger); min-height: 18px; font-size: 12px; margin-bottom: 8px; }
+
+/* ── browse tab ────────────────────────────────────────────────────── */
+.browse-source-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+.browse-source-row select {
+  height: var(--input-h);
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-input);
+  background: var(--surface);
+  font: inherit;
+  color: var(--ink);
+  min-width: 280px;
+}
+.browse-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.browse-breadcrumb {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.browse-list {
+  max-height: 480px;
+  overflow-y: auto;
+  margin-top: 8px;
+}
+.browse-row {
+  display: grid;
+  grid-template-columns: 32px 1fr 96px auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.browse-row.dir .browse-name { cursor: pointer; }
+.browse-row.dir .browse-name:hover { text-decoration: underline; }
+.browse-row.unreadable {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.browse-row.unreadable .browse-name,
+.browse-row.unreadable .browse-size { font-style: italic; }
+.browse-row.hidden-note { background: var(--subtle); border-bottom: 0; }
+.browse-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.browse-size { text-align: right; }
+.browse-row .browse-row-actions { display: flex; gap: 4px; }
+/* Tinted-text button: keep the ghost button's transparent background,
+   only colour the label red. Avoids the red-on-red invisible-text bug
+   when stacking .btn.danger (which fills bg). */
+.btn-text-danger { color: var(--danger); }
+.btn-text-danger:hover { background: var(--danger-bg); color: var(--danger); }
+.browse-row .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+/* white-space:nowrap on action buttons so they don't wrap into 2 lines */
+.browse-row-actions .btn { white-space: nowrap; }
+.browse-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
 .current {
   margin-top: 12px;
   font-family: var(--font-mono);

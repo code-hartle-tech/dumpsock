@@ -11,20 +11,12 @@
 </head>
 <body data-tab="dashboard">
 
-  <!-- Window chrome strip (traffic lights occupy the left 88px) -->
-  <header class="chrome" data-drag>
-    <div class="chrome-title">DumpSock v2</div>
-    <div class="chrome-right">
-      <button class="chrome-action" id="btn-settings-chrome" title="Settings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-      </button>
-    </div>
-  </header>
-
   <div class="layout">
 
-    <!-- Sidebar -->
-    <aside class="sidebar">
+    <!-- Sidebar — runs full window height. Its top ~36px is reserved as
+         the macOS traffic-lights drag region (HiddenInset title bar);
+         no separate chrome strip exists anymore. -->
+    <aside class="sidebar" data-drag>
       <div class="sidebar-brand">
         <img class="brandmark" src="dumpsock-mascot.svg" alt="DumpSock mascot">
         <div>
@@ -52,6 +44,12 @@
           </span>
           <span>Backups</span>
         </button>
+        <button class="nav-item" data-tab-target="browse" role="tab">
+          <span class="nav-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+          </span>
+          <span>Browse iPhone</span>
+        </button>
         <button class="nav-item" data-tab-target="logs" role="tab">
           <span class="nav-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
@@ -67,18 +65,12 @@
       </nav>
 
       <div class="sidebar-bottom">
-        <a class="sidebar-link" href="https://github.com/code-hartle-tech/dumpsock" target="_blank">
+        <a class="sidebar-link" href="https://dumpsock.hartle.tech/" target="_blank">
           <span class="nav-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
           </span>
           <span>Help &amp; Docs</span>
         </a>
-        <button class="sidebar-link" data-tab-target="settings">
-          <span class="nav-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-          </span>
-          <span>About DumpSock</span>
-        </button>
         <div class="status-pill">
           <span class="dot ok"></span>
           <div class="status-text">
@@ -106,13 +98,12 @@
             </div>
             <div id="device-card-body">
               <div class="device-empty" id="device-empty">
-                <img class="mascot-sm" src="dumpsock-mascot.svg" alt="">
-                <div>
-                  <div class="device-empty-title">Looking for a phone…</div>
-                  <div class="muted">Plug an iPhone in over USB and unlock it. Tap <b>Trust</b> if asked.</div>
+                <div class="device-empty-text">
+                  <div class="device-empty-title">No iPhone connected</div>
+                  <div class="muted">Plug one in over USB and tap <b>Trust</b> on the device if prompted.</div>
                 </div>
               </div>
-              <div class="device-row" id="device-row" hidden>
+              <div class="device-row clickable" id="device-row" hidden title="Open in Finder">
                 <div class="device-icon">📱</div>
                 <div class="device-info">
                   <div class="device-name">
@@ -154,22 +145,22 @@
                 </div>
               </div>
               <div class="storage-breakdown">
-                <div class="storage-legend">
+                <div class="storage-legend clickable" data-browse-to="/DCIM" title="Open Photos in Browse">
                   <span class="legend-dot photos"></span>
                   <span class="legend-label">Photos</span>
                   <span class="legend-value" id="legend-photos">—</span>
                 </div>
-                <div class="storage-legend">
+                <div class="storage-legend clickable" data-browse-to="/DCIM" title="Open Videos in Browse">
                   <span class="legend-dot videos"></span>
                   <span class="legend-label">Videos</span>
                   <span class="legend-value" id="legend-videos">—</span>
                 </div>
-                <div class="storage-legend">
+                <div class="storage-legend clickable" data-browse-to="/" title="Open Apps in Browse">
                   <span class="legend-dot apps"></span>
                   <span class="legend-label">Apps</span>
                   <span class="legend-value" id="legend-apps">—</span>
                 </div>
-                <div class="storage-legend">
+                <div class="storage-legend clickable" data-browse-to="/" title="Open device root in Browse">
                   <span class="legend-dot other"></span>
                   <span class="legend-label">Other</span>
                   <span class="legend-value" id="legend-other">—</span>
@@ -184,16 +175,18 @@
           </div>
 
           <!-- Last Backup -->
-          <div class="card last-backup-card">
-            <div class="last-backup-body">
-              <span class="muted small uppercase">Last Backup</span>
-              <div class="last-backup-time">
-                <span id="last-backup-time">No backups yet</span>
-                <span class="pill success" id="last-backup-status" hidden><span class="dot"></span>Success</span>
-              </div>
-              <div class="last-backup-filename" id="last-backup-detail">—</div>
+          <div class="card last-backup-card clickable" id="last-backup-card" title="Open the backup folder in Finder">
+            <div class="card-head">
+              <h3>Last Backup</h3>
+              <button class="btn ghost small" id="btn-reveal-output" hidden>View in Finder</button>
             </div>
-            <button class="btn ghost small" id="btn-reveal-output">View in Finder</button>
+            <div class="last-backup-body">
+              <div class="last-backup-time" id="last-backup-time">No backups recorded yet</div>
+              <div class="last-backup-meta">
+                <span class="pill success" id="last-backup-status" hidden><span class="dot"></span>Success</span>
+                <span class="last-backup-filename" id="last-backup-detail">Run your first backup and the destination + timestamp will land here.</span>
+              </div>
+            </div>
           </div>
 
           <!-- Pull CTA -->
@@ -203,6 +196,24 @@
               <div class="output-path" id="output-path-display">—</div>
               <button class="btn ghost small" id="btn-pick-output">Change…</button>
             </div>
+
+            <!-- Quick options moved out of Settings (2026-05-17) so the
+                 high-leverage actions are one click from the Dashboard. -->
+            <div class="pull-options">
+              <label class="check danger compact">
+                <input type="checkbox" id="dash-delete-after">
+                <span><b>Wring it dry</b> — delete each file from the phone after it's safely backed up</span>
+              </label>
+              <label class="check compact">
+                <input type="checkbox" id="dash-compress">
+                <span><b>Compress to .zip</b> — package the YYYY-MM-DD/ tree as one archive after backup</span>
+              </label>
+              <label class="check compact">
+                <input type="checkbox" id="dash-encrypt">
+                <span><b>Password-protect</b> — encrypt the .zip with AES-256 (you'll be asked for a password)</span>
+              </label>
+            </div>
+
             <button class="btn primary big block" id="btn-pull">
               <span class="btn-icon">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
@@ -241,8 +252,11 @@
             <button class="filter-pill" data-filter="device">New in Device <span class="count" id="cmp-count-device">(—)</span></button>
             <button class="filter-pill" data-filter="backup">New in Backup <span class="count" id="cmp-count-backup">(—)</span></button>
             <button class="filter-pill" data-filter="different">Different <span class="count" id="cmp-count-diff">(—)</span></button>
-            <button class="filter-pill" data-filter="run" id="btn-compare-run" style="margin-left:auto;background:var(--brand-primary,#E74C3C);color:#fff;">Run Compare</button>
-            <span id="compare-status" class="compare-status-text" hidden></span>
+            <!-- Status indicator sits to the LEFT of the Run button so that
+                 the button's right-edge position doesn't shift when phase
+                 text appears/disappears during a compare run. -->
+            <span id="compare-status" class="compare-status-text" hidden style="margin-left:auto;"></span>
+            <button class="filter-pill" data-filter="run" id="btn-compare-run" style="background:var(--brand-primary,#E74C3C);color:#fff;">Run Compare</button>
           </div>
 
           <div class="compare-grid">
@@ -393,10 +407,57 @@
           </p>
         </section>
 
-        <!-- ══════════════════════════ BACKUPS (alias of progress) ══════════════════════════ -->
+        <!-- ══════════════════════════ BROWSE iPHONE ══════════════════════════ -->
+        <section class="tab" data-tab="browse" hidden>
+          <h1 class="tab-title">Browse iPhone</h1>
+          <p class="tab-subtitle">Look at what's on the phone before pulling. Tick files to back up a selection instead of everything.</p>
+          <div class="card">
+            <!-- Source picker — device media (com.apple.afc) vs a single
+                 third-party app's Documents (house_arrest). Apps that
+                 don't ship UIFileSharingEnabled=YES never appear here. -->
+            <div class="browse-source-row">
+              <label class="check compact">
+                <input type="radio" name="browse-source" value="device" checked>
+                <span><b>Device media</b> — DCIM, Books, Recordings, etc.</span>
+              </label>
+              <label class="check compact">
+                <input type="radio" name="browse-source" value="app">
+                <span><b>App data</b> — apps that publish their Documents folder</span>
+              </label>
+              <select id="browse-app-picker" hidden></select>
+            </div>
+            <div class="browse-toolbar">
+              <button class="btn ghost small" id="browse-up">↑ Up</button>
+              <div class="browse-breadcrumb" id="browse-breadcrumb">/</div>
+              <button class="btn ghost small" id="browse-refresh">Refresh</button>
+            </div>
+            <div class="browse-list" id="browse-list">
+              <div class="muted small" id="browse-empty">Plug in an iPhone, then come back here.</div>
+            </div>
+            <div class="browse-footer">
+              <div class="browse-summary muted" id="browse-summary">No files selected.</div>
+              <button class="btn primary" id="btn-browse-pull" disabled>Back up selected</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ══════════════════════════ BACKUPS ══════════════════════════ -->
         <section class="tab" data-tab="backups" hidden>
           <h1 class="tab-title">Backups</h1>
-          <p class="tab-subtitle">Active job and recent backup runs</p>
+          <p class="tab-subtitle">Saved backups on this machine — move them around, reveal in Finder, or forget them</p>
+
+          <!-- List of known backups (populated by ListBackups). -->
+          <div class="card" id="backups-list-card">
+            <div class="card-head">
+              <h3>Saved backups</h3>
+              <button class="btn ghost small" id="btn-refresh-backups">Refresh</button>
+            </div>
+            <div id="backups-list" class="backups-list">
+              <div class="muted small" id="backups-list-empty">No saved backups yet. Run a backup from the Dashboard to record one here.</div>
+            </div>
+          </div>
+
+          <h2 class="tab-subtitle" style="margin-top:24px;">Active job</h2>
           <div class="card" id="run-card">
             <div class="progress-head">
               <h2 id="progress-phase">No backup running.</h2>
@@ -404,8 +465,13 @@
             </div>
             <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
             <div class="progress-counts">
-              <span><b id="count-done">0</b> / <span id="count-total">0</span></span>
+              <span><b id="count-bytes-done">0 B</b> / <span id="count-bytes-total">0 B</span></span>
               <span class="muted" id="count-rate">—</span>
+            </div>
+            <div class="progress-files-line">
+              <span><b id="count-done">0</b> of <span id="count-total">0</span> files copied</span>
+              <span class="muted">·</span>
+              <span><b id="count-remaining">0</b> remaining</span>
             </div>
             <div class="current" id="current-file">—</div>
             <div class="stats">
@@ -550,6 +616,37 @@
 
   <!-- Toast + modal -->
   <div class="toast" id="toast" hidden></div>
+
+  <!-- Generic confirm modal (used wherever window.confirm() proves
+       unreliable in the Wails webview — Browse → Delete in particular). -->
+  <div class="modal-veil" id="confirm-modal" hidden>
+    <div class="modal">
+      <h2 id="confirm-title">Are you sure?</h2>
+      <p id="confirm-body" class="muted"></p>
+      <div class="actions">
+        <button class="btn ghost" id="btn-confirm-cancel">Cancel</button>
+        <button class="btn primary danger" id="btn-confirm-ok">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-veil" id="password-modal" hidden>
+    <div class="modal">
+      <h2>Password-protect this backup</h2>
+      <p>DumpSock will encrypt the .zip with AES-256-GCM. The key is
+        derived from your password via PBKDF2-SHA256 (200,000 iterations).</p>
+      <p class="muted"><b>If you lose this password the backup is unreadable.</b> No reset, no recovery — that's the point.</p>
+      <label class="field-label" for="password-input">Password</label>
+      <input type="password" id="password-input" class="text-input" autocomplete="new-password">
+      <label class="field-label" for="password-confirm">Confirm</label>
+      <input type="password" id="password-confirm" class="text-input" autocomplete="new-password">
+      <div class="password-error muted" id="password-error"></div>
+      <div class="actions">
+        <button class="btn ghost" id="btn-password-cancel">Cancel</button>
+        <button class="btn primary" id="btn-password-ok">Use this password</button>
+      </div>
+    </div>
+  </div>
 
   <div class="modal-veil" id="delete-confirm" hidden>
     <div class="modal">
