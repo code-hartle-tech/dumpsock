@@ -95,6 +95,8 @@ export default defineConfig({
             { text: 'PTP delete does NOT free bytes', link: '/discoveries/ptp-delete-still-trashes' },
             { text: 'AFC delete leaves ghosts in Photos.app', link: '/discoveries/afc-delete-ghosts' },
             { text: 'VTracer for raster→SVG', link: '/discoveries/vtracer-for-raster-to-svg' },
+            { text: 'go-ios house_arrest hardcodes VendContainer', link: '/discoveries/go-ios-house-arrest-hardcodes-vendcontainer' },
+            { text: 'go-ios BrowseFileSharingApps doesn’t filter', link: '/discoveries/go-ios-browsefilesharingapps-doesnt-filter' },
           ],
         },
         {
@@ -102,6 +104,7 @@ export default defineConfig({
           items: [
             { text: 'Index', link: '/sessions/' },
             { text: '2026-05 — kickoff → v3', link: '/sessions/2026-05-kickoff' },
+            { text: '2026-05-17 — phase 2.5 sweep', link: '/sessions/2026-05-17-phase-2.5-sweep' },
           ],
         },
         {

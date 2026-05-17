@@ -39,7 +39,13 @@ dumpsock pull [flags]
 dumpsock devices [--json]      # list connected iOS devices
 dumpsock version               # version + build info
 dumpsock --help
+
+# Phase 6/7 — scope expansion (in development, return ErrNotImplemented today)
+dumpsock icloud pull           # iCloud Photos download (Phase 7)
+dumpsock backup-device         # full-device backup via MobileBackup2 (Phase 6)
 ```
+
+The `icloud` and `backup-device` subcommands are scaffolds — they exit with `ErrNotImplemented` and a pointer to the implementation roadmap. The local-AFC `dumpsock pull` is the first-class, working flow; cloud + full-device backups are explicitly opt-in subcommands you have to ask for, and they're being built behind the scenes.
 
 ## Environment
 

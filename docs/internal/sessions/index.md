@@ -14,7 +14,8 @@ A running narrative of what we did, session by session. Future-Claude can resume
 
 | Session | Window | Theme | Status |
 |---|---|---|---|
-| [2026-05 — kickoff → v3](./2026-05-kickoff) | 2026-05-13 → 2026-05-15 | Built the thing from scratch. CLI MVP. Wails GUI. Brand v3. Internal + external wikis. | In progress — current |
+| [2026-05 — kickoff → v3](./2026-05-kickoff) | 2026-05-13 → 2026-05-15 | Built the thing from scratch. CLI MVP. Wails GUI. Brand v3. Internal + external wikis. | Shipped |
+| [2026-05-17 — phase 2.5 sweep](./2026-05-17-phase-2.5-sweep) | 2026-05-17 (single day) | Operator's 10-item GUI sweep + nonnegotiable workflow rules. Browse iPhone tab, third-party app data, byte progress, session restore, backups list, encrypted archives, scope expansion for Phase 6/7. | In progress — 14 of 21 tasks validated; 6 in-flight; docs sweep current |
 
 ## Why we keep these
 

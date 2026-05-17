@@ -31,7 +31,13 @@ features:
     details: One native binary per platform. No Electron. Backs up a 256 GB iPhone in roughly the time it takes USB-C to move the bytes.
   - icon: 🧽
     title: Free iPhone storage
-    details: Optional --delete-after removes each file from your phone the moment it's safely on disk. Storage freed immediately, no Recently-Deleted purgatory.
+    details: Optional Wring-it-dry removes each file from your phone the moment it's safely on disk. Storage freed immediately, no Recently-Deleted purgatory.
+  - icon: 🔍
+    title: Browse before you back up
+    details: Pick exactly what to copy — single files, entire folders, or even a third-party app's Documents. No more all-or-nothing.
+  - icon: 🗝
+    title: Encrypted archives
+    details: Optional AES-256-GCM password protection on the produced zip. PBKDF2 with 200,000 iterations. Solid for moving backups across untrusted boundaries.
   - icon: ❤️‍🩹
     title: Easy restore
     details: Drag any folder back through Image Capture, Finder, or Photos.app — nothing about DumpSock locks you into DumpSock.

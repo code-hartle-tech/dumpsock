@@ -65,6 +65,8 @@ export default defineConfig({
             { text: 'Local-first', link: '/features/local-first' },
             { text: 'Privacy', link: '/features/privacy' },
             { text: 'Delete-after', link: '/features/delete-after' },
+            { text: 'Browse & pick', link: '/features/browse-and-pick' },
+            { text: 'Encrypted backups', link: '/features/encrypted-backups' },
             { text: 'Compare & Merge', link: '/features/compare' },
             { text: 'Date-sorted output', link: '/features/date-sorted' },
           ],

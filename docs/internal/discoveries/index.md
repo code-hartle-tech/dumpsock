@@ -18,6 +18,8 @@ The format is loose. The point is that future-us (or a Claude session resuming c
 | [PTP delete still trashes](./ptp-delete-still-trashes) | We hoped USB PTP `DeleteObject` (opcode `0x100B`) might skip Recently Deleted. iOS 26 routes it through PhotoKit anyway. Free space did not budge after a 332 MB delete. |
 | [AFC delete leaves ghosts](./afc-delete-ghosts) | AFC delete frees DCIM bytes but leaves Photos.sqlite ZASSET rows. Ghosts appear with exclamation marks. Tapping clears the row; bulk clear from app-side is what users actually want. |
 | [VTracer for raster→SVG](./vtracer-for-raster-to-svg) | Hand-authored SVG paths always look like ass compared to the source PNG. `cargo install vtracer` produces a 37 KB pixel-faithful SVG. Never hand-trace again. |
+| [go-ios `house_arrest.New` hardcodes VendContainer](./go-ios-house-arrest-hardcodes-vendcontainer) | App-Store apps with UIFileSharingEnabled fail with InstallationLookupFailed because the constructor sends VendContainer, not VendDocuments. We ship our own wrapper. |
+| [go-ios `BrowseFileSharingApps` doesn't filter](./go-ios-browsefilesharingapps-doesnt-filter) | The function returns EVERY installed app, not just file-sharing-enabled ones. Use BrowseUserApps + host-side UIFileSharingEnabled instead. |
 
 ## Adding a new discovery
 

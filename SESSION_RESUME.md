@@ -11,7 +11,7 @@
 **Phase 0 — scaffold:** ✅ complete (commit `5bc2647`).
 **Phase 1 — Go CLI feature parity + icloudpd extras:** ✅ merged.
 **Phase 2 — Wails desktop GUI:** ✅ shipped (charcoal HARTLE.TECH theme; later rebranded blue per 2026-05-17 icon pick).
-**Phase 2.5 — operator's 10-item feature sweep + nonnegotiables retrofit:** 🟡 **shipped on uncommitted working tree, awaiting operator test before commit.**
+**Phase 2.5 — operator's 10-item feature sweep + nonnegotiables retrofit:** 🟢 **14 of ~21 tasks validated + committed at `dfbe600` (umbrella issue #27 on board #7). 6 in-flight awaiting operator test.**
 **Phase 6/7 — full-device + iCloud backup:** 🛠 **scope expanded in CLAUDE.md; scaffold packages + CLI subcommands return ErrNotImplemented**. Real port is 2–10 weeks per agent estimate; roadmap at `docs/phase-6-roadmap.md`.
 
 ## What's on the working tree (uncommitted)
