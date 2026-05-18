@@ -65,7 +65,7 @@ $DUMPSOCK_PASSWORD env var, then interactive prompt.`,
 				return fmt.Errorf("output already exists: %s (pass -o to choose a different name)", outPath)
 			}
 			fmt.Fprintf(stderr, "decrypting %s → %s …\n", filepath.Base(src), filepath.Base(outPath))
-			final, err := backup.DecryptFile(src, outPath, pw)
+			final, err := backup.DecryptFile(src, outPath, pw, nil)
 			if err != nil {
 				return err
 			}

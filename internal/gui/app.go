@@ -202,24 +202,37 @@ type BackupEntry struct {
 	Archives    []string         `json:"archives,omitempty"`
 }
 
-// discoverBackups scans likely parent directories (the default
-// `~/DumpSock` root + the parent of LastOutput) one level deep, looks
-// for folders containing a `.dumpsock.json` marker, and merges them
-// into KnownBackups. Runs on Startup + on every ListBackups call so
+// discoverBackups scans likely parent directories one level deep for
+// folders containing a `.dumpsock.json` marker, plus checks LastOutput
+// itself directly. Runs on Startup + on every ListBackups call so
 // backups produced before the auto-register fix (2026-05-18) still
-// appear, and so manually-copied backup folders are picked up.
+// appear and manually-copied backup folders are picked up.
+//
+// Candidate parents:
+//   - ~/DumpSock         (the documented default root)
+//   - ~/Documents        (common user choice, including operator's)
+//   - ~/Desktop, ~/Downloads (also common)
+//   - /Volumes/*         (external drives — each volume gets scanned)
+//   - filepath.Dir(LastOutput) (catches whatever parent the user picked)
 //
 // Idempotent: existing KnownBackups entries are preserved; new ones
 // are appended with dedup. Bounded — only the FIRST level beneath
-// each candidate parent is scanned (no recursion).
+// each candidate parent is scanned (no recursion). LastOutput itself
+// is added directly when it contains a marker (covers the case where
+// the operator picked it via Choose… and we want to capture exactly
+// that path, not its siblings).
 func (a *App) discoverBackups() {
 	candidates := map[string]bool{}
 	if home, err := os.UserHomeDir(); err == nil && home != "" {
 		candidates[filepath.Join(home, "DumpSock")] = true
+		candidates[filepath.Join(home, "Documents")] = true
+		candidates[filepath.Join(home, "Desktop")] = true
+		candidates[filepath.Join(home, "Downloads")] = true
 	}
 	a.mu.Lock()
-	if a.cfg.LastOutput != "" {
-		candidates[filepath.Dir(a.cfg.LastOutput)] = true
+	lastOutput := a.cfg.LastOutput
+	if lastOutput != "" {
+		candidates[filepath.Dir(lastOutput)] = true
 	}
 	known := make(map[string]bool, len(a.cfg.KnownBackups))
 	for _, p := range a.cfg.KnownBackups {
@@ -227,7 +240,35 @@ func (a *App) discoverBackups() {
 	}
 	a.mu.Unlock()
 
+	// Each mounted volume on macOS is a candidate root for "external
+	// drive backups." Add /Volumes/<name> for each.
+	if vols, err := os.ReadDir("/Volumes"); err == nil {
+		for _, v := range vols {
+			if v.IsDir() {
+				candidates[filepath.Join("/Volumes", v.Name())] = true
+			}
+		}
+	}
+
 	var added []string
+	// LastOutput itself, if it carries a marker, joins the list
+	// directly (no parent scan needed).
+	if lastOutput != "" && !known[lastOutput] {
+		if _, err := os.Stat(filepath.Join(lastOutput, backup.MetadataFileName)); err == nil {
+			added = append(added, lastOutput)
+			known[lastOutput] = true
+		} else {
+			// Even without the marker, if the user picked this folder
+			// recently it almost certainly IS a backup folder. Register
+			// it conservatively — the row will show "no metadata" but
+			// at least surfaces in the list.
+			if fi, err := os.Stat(lastOutput); err == nil && fi.IsDir() {
+				added = append(added, lastOutput)
+				known[lastOutput] = true
+			}
+		}
+	}
+
 	for parent := range candidates {
 		fi, err := os.Stat(parent)
 		if err != nil || !fi.IsDir() {
@@ -675,7 +716,8 @@ func (a *App) PickArchiveToDecrypt() (string, error) {
 // outPath is empty we pick <src-without-.aes>, auto-suffixing -1, -2,
 // … if that name is already taken (so the operator can re-decrypt
 // without manually clearing the prior output). Returns the produced
-// path on success.
+// path on success. Forwards decrypt progress to the GUI via the same
+// backup:progress event stream the pull/pack/encrypt phases use.
 func (a *App) DecryptArchive(srcPath, outPath, password string) (string, error) {
 	if srcPath == "" {
 		return "", errors.New("DecryptArchive: empty srcPath")
@@ -695,7 +737,14 @@ func (a *App) DecryptArchive(srcPath, outPath, password string) (string, error) 
 	if _, err := os.Stat(outPath); err == nil {
 		outPath = nextFreeName(outPath)
 	}
-	return backup.DecryptFile(srcPath, outPath, password)
+	onProgress := func(pp backup.PackageProgress) {
+		wruntime.EventsEmit(a.ctx, "backup:progress", backup.ProgressEvent{
+			Phase:       pp.Phase, // "decrypting"
+			BytesTotal:  pp.BytesTotal,
+			BytesPulled: pp.BytesDone,
+		})
+	}
+	return backup.DecryptFile(srcPath, outPath, password, onProgress)
 }
 
 // nextFreeName returns base if it doesn't exist, otherwise base with

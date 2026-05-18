@@ -587,7 +587,14 @@
     try { pw = await promptDecryptPassword(src); }
     catch (e) { toast("Password prompt failed: " + (e && e.message || e)); return; }
     if (pw === null) return; // user cancelled
-    toast("Decrypting " + src.split("/").pop() + "…", 60000);
+    // Switch to the Backups tab and reset the progress UI BEFORE
+    // kicking off — backup:progress events with phase=decrypting feed
+    // the same bar the pull/pack/encrypt phases use, so the user sees
+    // live chunk counts instead of a blank wait.
+    setTab("backups");
+    resetProgressUI();
+    $("#progress-phase").textContent = "Decrypting archive…";
+    toast("Decrypting " + src.split("/").pop() + "…", 30000);
     let outPath = "";
     try {
       outPath = await window.go.gui.App.DecryptArchive(src, "", pw);
@@ -788,6 +795,7 @@
       case "deleting":   return "Deleting from device…";
       case "packaging":  return "Bundling into .zip…";
       case "encrypting": return "Encrypting archive…";
+      case "decrypting": return "Decrypting archive…";
       case "done":       return "Done";
       case "error":      return "Error";
       default:           return ev.phase;
@@ -1424,23 +1432,20 @@
 
     // Device row click → open the current backup folder in Finder
     // (operator preference 2026-05-18: "clicking here should open
-    // current backup folder"). Falls back to home + a hint when no
-    // output directory is set yet (first-run state).
+    // current backup folder"). Falls back with a diagnostic toast when
+    // state.outputDir is empty OR the path can't be opened so the next
+    // bug report points at the right surface.
     const deviceRow = $("#device-row");
     if (deviceRow) deviceRow.addEventListener("click", async () => {
-      if (state.outputDir) {
-        try {
-          await window.go.gui.App.RevealInFinder(state.outputDir);
-          return;
-        } catch (e) {
-          toast("Couldn't open backup folder: " + (e && e.message || e));
-        }
+      const dir = (state.outputDir || "").trim();
+      if (!dir) {
+        toast("No backup folder set yet — Dashboard → Change… to pick one. Then this button jumps straight to it.", 7000);
+        return;
       }
       try {
-        await window.go.gui.App.RevealDeviceInFinder("");
-        toast("Pick a backup folder first (Dashboard → Change…), then click here to jump straight to it.", 6000);
+        await window.go.gui.App.RevealInFinder(dir);
       } catch (e) {
-        toast("Couldn't open Finder: " + (e && e.message || e));
+        toast("Couldn't open " + dir + ": " + (e && e.message || e), 8000);
       }
     });
 
