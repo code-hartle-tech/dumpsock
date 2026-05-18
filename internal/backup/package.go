@@ -90,34 +90,49 @@ type PackageProgress struct {
 //     decryptable by 7-Zip / Keka / modern Finder). Standard finishes
 //     here; Maximum's caller then runs EncryptFile on the produced zip
 //     to add a DSAES2 wrapper.
-func PackageZip(ctx context.Context, outputRoot, password string, mode PasswordMode, onProgress func(PackageProgress)) (string, error) {
+// onlyPaths, when non-nil, restricts the archive to those exact local
+// paths (skipping the recursive walk). Used by the GUI's "Only this
+// run" scope toggle which feeds Result.PulledPaths from the just-
+// completed pull. Each path must be absolute and live under outputRoot;
+// archive entries are encoded relative to outputRoot so the resulting
+// zip preserves the YYYY-MM-DD/ structure.
+func PackageZip(ctx context.Context, outputRoot, password string, mode PasswordMode, onlyPaths []string, onProgress func(PackageProgress)) (string, error) {
 	if outputRoot == "" {
 		return "", errors.New("PackageZip: empty outputRoot")
 	}
 	encrypt := password != "" && mode != PasswordNone
+	scoped := len(onlyPaths) > 0
 	cleaned := filepath.Clean(outputRoot)
 	leaf := filepath.Base(cleaned)
 	zipPath := freeName(filepath.Join(cleaned, leaf+".zip"))
 
 	// Pre-walk: sum total bytes so the progress bar has a real
 	// denominator. Cheap (one Stat per file) compared to the actual
-	// copy step. Same skip rules as the main walk below.
+	// copy step.
 	var bytesTotal int64
-	_ = filepath.WalkDir(cleaned, func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+	if scoped {
+		for _, p := range onlyPaths {
+			if info, err := os.Stat(p); err == nil && !info.IsDir() {
+				bytesTotal += info.Size()
+			}
+		}
+	} else {
+		_ = filepath.WalkDir(cleaned, func(p string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return nil
+			}
+			name := d.Name()
+			if strings.HasPrefix(name, ".dumpsock") ||
+				strings.HasSuffix(name, ".zip") ||
+				strings.HasSuffix(name, ".zip.aes") {
+				return nil
+			}
+			if info, _ := d.Info(); info != nil {
+				bytesTotal += info.Size()
+			}
 			return nil
-		}
-		name := d.Name()
-		if strings.HasPrefix(name, ".dumpsock") ||
-			strings.HasSuffix(name, ".zip") ||
-			strings.HasSuffix(name, ".zip.aes") {
-			return nil
-		}
-		if info, _ := d.Info(); info != nil {
-			bytesTotal += info.Size()
-		}
-		return nil
-	})
+		})
+	}
 	if onProgress != nil {
 		onProgress(PackageProgress{Phase: "packaging", BytesTotal: bytesTotal})
 	}
@@ -131,43 +146,20 @@ func PackageZip(ctx context.Context, outputRoot, password string, mode PasswordM
 	var bytesDone int64
 	lastEmit := bytesDone
 	zw := zip.NewWriter(out)
-	walkErr := filepath.WalkDir(cleaned, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
+
+	// addFile streams one file into the zip with the right header
+	// settings (Store + optional AES-256). rel is the path inside the
+	// archive; absPath is the on-disk source.
+	addFile := func(absPath, rel, displayName string) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		name := d.Name()
-		// Skip DumpSock-internal sentinels / staging dirs.
-		if strings.HasPrefix(name, ".dumpsock") {
-			if d.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		// Skip the zip we're currently writing AND any older archive
-		// files that happen to live in outputRoot (the .zip / .zip.aes
-		// from a prior run) so re-running a backup doesn't gobble its
-		// own predecessors into the new archive.
-		if !d.IsDir() {
-			cp := filepath.Clean(p)
-			if cp == zipPath ||
-				strings.HasSuffix(name, ".zip") ||
-				strings.HasSuffix(name, ".zip.aes") {
-				return nil
-			}
-		}
-		rel, _ := filepath.Rel(cleaned, p)
-		if rel == "." {
-			return nil
-		}
-		if d.IsDir() {
-			_, err := zw.Create(rel + "/")
+		info, err := os.Stat(absPath)
+		if err != nil {
 			return err
 		}
-		info, err := d.Info()
-		if err != nil {
+		if info.IsDir() {
+			_, err := zw.Create(rel + "/")
 			return err
 		}
 		header, err := zip.FileInfoHeader(info)
@@ -175,14 +167,9 @@ func PackageZip(ctx context.Context, outputRoot, password string, mode PasswordM
 			return err
 		}
 		header.Name = rel
-		// zip.Store = no compression. Already-compressed media (HEIC,
-		// JPEG, H.264) gains <1% from Deflate and costs CPU-hours on a
-		// real-world backup. Operator-reported "packaging takes
-		// FOREVER" on 2026-05-18 — fixed by switching to Store. We keep
-		// Store even when AES encryption is on; the per-file AES layer
-		// is fast enough (~few GB/s with AES-NI) that Deflate would
-		// still dominate runtime AND save nothing on already-compressed
-		// content.
+		// Store mode keeps the operation disk-bound; already-compressed
+		// media (HEIC, JPEG, H.264) gains <1% from Deflate at huge CPU
+		// cost. Per-file AES (~few GB/s with AES-NI) is much cheaper.
 		header.Method = zip.Store
 		if encrypt {
 			header.SetPassword(password)
@@ -192,7 +179,7 @@ func PackageZip(ctx context.Context, outputRoot, password string, mode PasswordM
 		if err != nil {
 			return err
 		}
-		f, err := os.Open(p)
+		f, err := os.Open(absPath)
 		if err != nil {
 			return err
 		}
@@ -212,7 +199,7 @@ func PackageZip(ctx context.Context, outputRoot, password string, mode PasswordM
 						Phase:      "packaging",
 						BytesDone:  bytesDone,
 						BytesTotal: bytesTotal,
-						Current:    name,
+						Current:    displayName,
 					})
 					lastEmit = bytesDone
 				}
@@ -227,7 +214,59 @@ func PackageZip(ctx context.Context, outputRoot, password string, mode PasswordM
 		}
 		_ = f.Close()
 		return copyErr
-	})
+	}
+
+	var walkErr error
+	if scoped {
+		// Scoped mode: only the explicit paths get archived. Used by
+		// the "Only this run" toggle in the GUI; res.PulledPaths from
+		// the just-completed pull is passed through.
+		for _, abs := range onlyPaths {
+			cp := filepath.Clean(abs)
+			rel, relErr := filepath.Rel(cleaned, cp)
+			if relErr != nil || strings.HasPrefix(rel, "..") {
+				// Path is outside outputRoot — skip rather than escape.
+				continue
+			}
+			if err := addFile(cp, rel, filepath.Base(cp)); err != nil {
+				walkErr = err
+				break
+			}
+		}
+	} else {
+		walkErr = filepath.WalkDir(cleaned, func(p string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			name := d.Name()
+			// Skip DumpSock-internal sentinels / staging dirs.
+			if strings.HasPrefix(name, ".dumpsock") {
+				if d.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			// Skip the zip we're currently writing AND any older
+			// archive files in outputRoot (so re-running a backup
+			// doesn't gobble its own predecessors into the new zip).
+			if !d.IsDir() {
+				cp := filepath.Clean(p)
+				if cp == zipPath ||
+					strings.HasSuffix(name, ".zip") ||
+					strings.HasSuffix(name, ".zip.aes") {
+					return nil
+				}
+			}
+			rel, _ := filepath.Rel(cleaned, p)
+			if rel == "." {
+				return nil
+			}
+			return addFile(p, rel, name)
+		})
+	}
 	if onProgress != nil {
 		onProgress(PackageProgress{
 			Phase:      "packaging",

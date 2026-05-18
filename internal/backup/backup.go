@@ -135,6 +135,12 @@ type Result struct {
 	DeleteErrors   int // remote files we tried to delete but couldn't
 	UntilFoundStop bool // true if we early-exited via --until-found N
 	Elapsed        time.Duration
+
+	// PulledPaths holds the absolute local-disk paths of files that
+	// actually landed on disk in this Run(). Captured so the GUI can
+	// offer a "Bundle only this run" archive scope — vs the default
+	// "Include past runs" which walks the whole outputRoot.
+	PulledPaths []string
 }
 
 // Run executes one pull pass. Watch-mode is implemented by the caller
@@ -481,6 +487,7 @@ func Run(ctx context.Context, opts Options) (Result, error) {
 				res.Suffixed++
 			}
 			res.Pulled++
+			res.PulledPaths = append(res.PulledPaths, target)
 			ix.Add(filepath.Base(target), p.remote.Size)
 			if deletionsEnabled {
 				queueDelete(p.remote.Path)

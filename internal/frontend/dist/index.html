@@ -440,7 +440,10 @@
           <div class="card" id="backups-list-card">
             <div class="card-head">
               <h3>Saved backups</h3>
-              <button class="btn ghost small" id="btn-refresh-backups">Refresh</button>
+              <div style="display:flex; gap:6px;">
+                <button class="btn ghost small" id="btn-decrypt-archive">Decrypt an archive…</button>
+                <button class="btn ghost small" id="btn-refresh-backups">Refresh</button>
+              </div>
             </div>
             <div id="backups-list" class="backups-list">
               <div class="muted small" id="backups-list-empty">No saved backups yet. Run a backup from the Dashboard to record one here.</div>
@@ -606,6 +609,22 @@
                   <em>Requires Bundle. You'll be asked for a password before the backup starts. Pick the protection level below.</em>
                 </span>
               </label>
+              <div class="password-mode-row" id="archive-scope-row">
+                <label class="radio">
+                  <input type="radio" name="archive-scope" value="all" checked>
+                  <span>
+                    <b>Include past runs (default)</b>
+                    <em>Bundles everything currently in the backup folder — the new files plus anything left from earlier runs. Same behaviour as before.</em>
+                  </span>
+                </label>
+                <label class="radio">
+                  <input type="radio" name="archive-scope" value="current">
+                  <span>
+                    <b>Only this run</b>
+                    <em>Bundles only the files DumpSock just pulled from your phone in this session. Skips everything else in the folder. Useful when you only want today's offload as a portable archive.</em>
+                  </span>
+                </label>
+              </div>
               <div class="password-mode-row" id="password-mode-row" hidden>
                 <label class="radio">
                   <input type="radio" name="password-mode" value="standard" checked>

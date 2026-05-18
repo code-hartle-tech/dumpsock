@@ -235,11 +235,17 @@
       const missingBadge = !e.reachable
         ? `<span class="pill danger"><span class="dot"></span>Unavailable${e.volume ? ` · plug ${e.volume} back in` : ""}</span>`
         : "";
+      // Detect encrypted archive inside this backup folder. Drives the
+      // optional "Decrypt" button on the row.
+      const archives = Array.isArray(e.archives) ? e.archives : [];
+      const aesArchive = archives.find((p) => p.endsWith(".zip.aes")) || "";
+      const archiveBadge = archives.length
+        ? `<span class="pill info"><span class="dot"></span>${aesArchive ? "Encrypted archive present" : "Archive present"}</span>` : "";
       const row = document.createElement("div");
       row.className = "backup-row" + (e.reachable ? "" : " unreachable");
       row.innerHTML = `
         <div class="backup-row-main">
-          <div class="backup-row-title">${escapeHTML(m.device_name || "iPhone")} ${interruptedBadge} ${missingBadge}</div>
+          <div class="backup-row-title">${escapeHTML(m.device_name || "iPhone")} ${interruptedBadge} ${missingBadge} ${archiveBadge}</div>
           <div class="backup-row-path">${escapeHTML(e.path)}</div>
           <div class="backup-row-meta muted small">
             ${files} files · ${bytes} · last updated ${updatedLabel}
@@ -247,6 +253,7 @@
         </div>
         <div class="backup-row-actions">
           <button class="btn ghost small" data-act="reveal" ${e.reachable ? "" : "disabled"}>Reveal</button>
+          ${aesArchive ? `<button class="btn ghost small" data-act="decrypt">Decrypt</button>` : ""}
           <button class="btn ghost small" data-act="move">Move…</button>
           <button class="btn ghost small" data-act="forget">Forget</button>
         </div>
@@ -255,6 +262,8 @@
         try { await window.go.gui.App.RevealInFinder(e.path); }
         catch (err) { toast("Could not open: " + (err.message || err)); }
       });
+      const decryptBtn = row.querySelector('[data-act="decrypt"]');
+      if (decryptBtn && aesArchive) decryptBtn.addEventListener("click", () => decryptFlow(aesArchive));
       row.querySelector("[data-act=move]").addEventListener("click", async () => {
         try {
           const picked = await window.go.gui.App.PickOutputFolder("Move backup to…");
@@ -521,6 +530,7 @@
       compress: wantsCompress || wantsEncrypt,
       password: wantsEncrypt ? (state.backupPassword || "") : "",
       password_mode: passwordMode,
+      archive_scope: (document.querySelector('input[name="archive-scope"]:checked')?.value) || "all",
     };
   }
   async function startPull() {
@@ -557,6 +567,78 @@
     }
     if (wantsDelete) { $("#delete-confirm").hidden = false; return; }
     await launchBackup(false);
+  }
+
+  // Decrypt flow: takes an optional preselected path. If srcPath is
+  // empty, opens the native file picker. Then prompts for a password
+  // (single-field; we're DECRYPTING, no confirm needed), calls the
+  // backend, and toasts the produced path with a Reveal-in-Finder
+  // follow-up button. End-to-end in the GUI — operator preference
+  // 2026-05-18 ("everything stays in the UI, don't be lazy").
+  async function decryptFlow(srcPath) {
+    let src = srcPath || "";
+    if (!src) {
+      try { src = await window.go.gui.App.PickArchiveToDecrypt(); }
+      catch (e) { toast("File picker failed: " + (e.message || e)); return; }
+      if (!src) return; // user cancelled
+    }
+    const pw = await promptDecryptPassword(src);
+    if (pw === null) return; // user cancelled
+    toast("Decrypting " + src.split("/").pop() + "…", 60000);
+    try {
+      const outPath = await window.go.gui.App.DecryptArchive(src, "", pw);
+      toast("Decrypted to " + outPath + " — click here to reveal.", 12000);
+      // Set the lastArchivePath state so the existing Reveal-archive
+      // button on the done banner can also surface this file.
+      state.lastArchivePath = outPath;
+      try { await window.go.gui.App.RevealFileInFinder(outPath); } catch {}
+    } catch (e) {
+      toast("Decrypt failed: " + (e.message || e), 10000);
+    }
+  }
+
+  // Single-password modal — reuses the existing #password-modal sheet
+  // but hides the confirm field since we're DECRYPTING (no risk of
+  // a typo silently locking the user out — wrong password just errors).
+  function promptDecryptPassword(srcLabel) {
+    return new Promise((resolve) => {
+      const veil = $("#password-modal");
+      const inp1 = $("#password-input");
+      const inp2 = $("#password-confirm");
+      const err  = $("#password-error");
+      const btnOk = $("#btn-password-ok");
+      const btnCancel = $("#btn-password-cancel");
+      const title = veil.querySelector("h2");
+      const subtitle = veil.querySelector("p");
+      const confirmLabel = veil.querySelector('label[for="password-confirm"]');
+      // Rewrite the modal copy for decrypt mode.
+      const oldTitle = title.textContent;
+      const oldSubtitle = subtitle.textContent;
+      title.textContent = "Password for " + (srcLabel ? srcLabel.split("/").pop() : "this archive");
+      subtitle.textContent = "Enter the password that was used when this archive was created.";
+      inp2.parentNode.style.display = "none";
+      confirmLabel.style.display = "none";
+      inp1.value = ""; inp2.value = ""; err.textContent = "";
+      veil.hidden = false;
+      setTimeout(() => inp1.focus(), 50);
+      const cleanup = (val) => {
+        veil.hidden = true;
+        btnOk.onclick = null;
+        btnCancel.onclick = null;
+        // Restore the modal to encrypt-mode copy for next time.
+        title.textContent = oldTitle;
+        subtitle.textContent = oldSubtitle;
+        inp2.parentNode.style.display = "";
+        confirmLabel.style.display = "";
+        resolve(val);
+      };
+      btnOk.onclick = () => {
+        const a = inp1.value;
+        if (!a) { err.textContent = "Password required."; return; }
+        cleanup(a);
+      };
+      btnCancel.onclick = () => cleanup(null);
+    });
   }
 
   // In-app confirm modal. Substitute for window.confirm() — the
@@ -1161,6 +1243,11 @@
     // Backups list
     const btnRefreshBackups = $("#btn-refresh-backups");
     if (btnRefreshBackups) btnRefreshBackups.addEventListener("click", refreshBackupsList);
+
+    // Decrypt-an-archive flow: pick file → prompt password → decrypt
+    // → toast the produced path with a Reveal-in-Finder follow-up.
+    const btnDecryptArchive = $("#btn-decrypt-archive");
+    if (btnDecryptArchive) btnDecryptArchive.addEventListener("click", () => decryptFlow(""));
 
     // Storage breakdown click-through → Browse tab (item 9). Each legend
     // row carries a data-browse-to AFC path; clicking it navigates the

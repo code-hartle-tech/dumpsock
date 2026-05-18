@@ -103,6 +103,11 @@ type BackupRequest struct {
 	// remote AFC paths (set from the Browse tab's checkbox selection).
 	// When set, the engine skips the recursive DCIM walk entirely.
 	OnlyPaths []string `json:"only_paths,omitempty"`
+
+	// ArchiveScope controls what PackageZip bundles. "" or "all" →
+	// everything under outputRoot (today's default; includes past
+	// runs). "current" → only files res.PulledPaths from this run.
+	ArchiveScope string `json:"archive_scope,omitempty"`
 }
 
 // AppInfo carries static metadata to the UI for headers / about dialog.
@@ -179,12 +184,18 @@ func (a *App) SaveLastOutput(path string) error {
 
 // BackupEntry is one row in the Backups tab — combines the registry
 // path with whatever .dumpsock.json metadata we can find at it.
+//
+// Archives lists any .zip / .zip.aes files sitting directly inside
+// the backup folder (one level deep — we don't recurse the YYYY-MM-DD
+// subtree). Drives the per-row "Decrypt" button on the Saved-backups
+// list so the operator never has to drop to the CLI.
 type BackupEntry struct {
-	Path       string            `json:"path"`
-	Reachable  bool              `json:"reachable"`
-	Volume     string            `json:"volume,omitempty"`
-	Metadata   *backup.Metadata  `json:"metadata,omitempty"`
+	Path        string           `json:"path"`
+	Reachable   bool             `json:"reachable"`
+	Volume      string           `json:"volume,omitempty"`
+	Metadata    *backup.Metadata `json:"metadata,omitempty"`
 	Interrupted *backup.Session  `json:"interrupted,omitempty"`
+	Archives    []string         `json:"archives,omitempty"`
 }
 
 // ListBackups returns one BackupEntry per directory in KnownBackups,
@@ -206,6 +217,20 @@ func (a *App) ListBackups() ([]BackupEntry, error) {
 			}
 			if s, _ := backup.ReadSession(p); s != nil {
 				entry.Interrupted = s
+			}
+			// Detect any .zip / .zip.aes sitting directly inside the
+			// backup folder so the Backups tab can show a Decrypt
+			// button. One level only — we don't recurse YYYY-MM-DD/.
+			if dir, derr := os.ReadDir(p); derr == nil {
+				for _, e := range dir {
+					if e.IsDir() {
+						continue
+					}
+					name := e.Name()
+					if strings.HasSuffix(name, ".zip.aes") || strings.HasSuffix(name, ".zip") {
+						entry.Archives = append(entry.Archives, filepath.Join(p, name))
+					}
+				}
 			}
 		}
 		entry.Volume = volumeHint(p)
@@ -561,6 +586,21 @@ func (a *App) BrowseApp(udid, bundleID, relPath string) ([]afc.Entry, error) {
 	return cl.List(relPath)
 }
 
+// PickArchiveToDecrypt pops a native file-open dialog scoped to
+// DumpSock-encrypted archives. Returns the chosen path, or "" when the
+// user cancels. Used by the Backups tab's "Decrypt an archive…" button
+// so the entire flow stays inside the GUI (operator preference 2026-
+// 05-18: "everything stays in the UI, don't be lazy").
+func (a *App) PickArchiveToDecrypt() (string, error) {
+	return wruntime.OpenFileDialog(a.ctx, wruntime.OpenDialogOptions{
+		Title: "Pick a DumpSock-encrypted archive (.zip.aes)",
+		Filters: []wruntime.FileFilter{
+			{DisplayName: "DumpSock encrypted archive", Pattern: "*.aes;*.zip.aes"},
+			{DisplayName: "All files", Pattern: "*"},
+		},
+	})
+}
+
 // DecryptArchive runs backup.DecryptFile on src using password. If
 // outPath is empty we pick <src-without-.aes> and refuse to overwrite
 // an existing file. Returns the produced path on success. Surfaced
@@ -827,20 +867,38 @@ func (a *App) StartBackup(req BackupRequest) (string, error) {
 			} else if mode == "" {
 				mode = backup.PasswordStandard
 			}
-			zipPath, pErr := backup.PackageZip(ctx, opts.OutputRoot, req.Password, mode, packProgress)
-			if pErr != nil {
-				payload["package_error"] = pErr.Error()
+			// Archive scope: default is "all" (walk outputRoot, includes
+			// past runs), or "current" (only this run's freshly-pulled
+			// files via res.PulledPaths). If "current" but nothing was
+			// pulled, we surface that as the package_error instead of
+			// silently producing an empty archive.
+			var scopedPaths []string
+			scopeErr := ""
+			if req.ArchiveScope == "current" {
+				scopedPaths = res.PulledPaths
+				if len(scopedPaths) == 0 {
+					scopeErr = "Only-this-run archive requested but no files were pulled — nothing to bundle."
+				}
+			}
+			if scopeErr != "" {
+				payload["package_error"] = scopeErr
 			} else {
-				payload["zip_path"] = zipPath
-				// Maximum mode adds the DSAES2 outer wrapper on top of
-				// the password-encrypted zip; only DumpSock decrypts.
-				if mode == backup.PasswordMaximum {
-					encPath, eErr := backup.EncryptFile(zipPath, req.Password, packProgress)
-					if eErr != nil {
-						payload["package_error"] = eErr.Error()
-					} else {
-						_ = os.Remove(zipPath) // intermediate inner zip
-						payload["encrypted_path"] = encPath
+				zipPath, pErr := backup.PackageZip(ctx, opts.OutputRoot, req.Password, mode, scopedPaths, packProgress)
+				if pErr != nil {
+					payload["package_error"] = pErr.Error()
+				} else {
+					payload["zip_path"] = zipPath
+					// Maximum mode adds the DSAES2 outer wrapper on top
+					// of the password-encrypted zip; only DumpSock
+					// decrypts the result.
+					if mode == backup.PasswordMaximum {
+						encPath, eErr := backup.EncryptFile(zipPath, req.Password, packProgress)
+						if eErr != nil {
+							payload["package_error"] = eErr.Error()
+						} else {
+							_ = os.Remove(zipPath) // intermediate inner zip
+							payload["encrypted_path"] = encPath
+						}
 					}
 				}
 			}
