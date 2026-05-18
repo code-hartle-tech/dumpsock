@@ -602,10 +602,26 @@
               <label class="check disabled">
                 <input type="checkbox" id="dash-encrypt" disabled>
                 <span>
-                  <b>Password-protect (AES-256-GCM)</b>
-                  <em>Wraps the .zip in DumpSock's DSAES2 container (PBKDF2-SHA256 200,000 iters, AES-256-GCM streamed in 1 MiB chunks). Takes longer but is way more secure — only DumpSock can decrypt the result. Requires Bundle to be ticked.</em>
+                  <b>Password-protect</b>
+                  <em>Requires Bundle. You'll be asked for a password before the backup starts. Pick the protection level below.</em>
                 </span>
               </label>
+              <div class="password-mode-row" id="password-mode-row" hidden>
+                <label class="radio">
+                  <input type="radio" name="password-mode" value="standard" checked>
+                  <span>
+                    <b>Standard (portable)</b>
+                    <em>WinZip-AE AES-256 per file. Any modern zip tool (7-Zip, Keka, Finder, WinRAR) can decrypt with the password. Fast — moments of CPU per gigabyte.</em>
+                  </span>
+                </label>
+                <label class="radio">
+                  <input type="radio" name="password-mode" value="maximum">
+                  <span>
+                    <b>Maximum (DumpSock-only, defense-in-depth)</b>
+                    <em>Standard + a DSAES2 wrapper on top (AES-256-GCM streamed in 1 MiB chunks, PBKDF2-SHA256 200k iters). Slower (two layers) but only DumpSock decrypts AND the outer wrapper hides the file list itself.</em>
+                  </span>
+                </label>
+              </div>
             </div>
 
             <div class="card about-card">

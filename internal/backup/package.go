@@ -1,7 +1,6 @@
 package backup
 
 import (
-	"archive/zip"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
@@ -15,10 +14,35 @@ import (
 	"path/filepath"
 	"strings"
 
+	// yeka/zip is a fork of stdlib archive/zip with AES-256 password
+	// encryption added. We always use this — when no password is set,
+	// behaviour is byte-identical to archive/zip (Store mode); when a
+	// password is set, per-file AES-256 encryption is applied.
+	zip "github.com/yeka/zip"
 	"golang.org/x/crypto/pbkdf2"
 
-	_ "crypto/sha256" // PBKDF2-SHA256
+	_ "crypto/sha256" // PBKDF2-SHA256 import for side-effect registration
 	"crypto/sha256"
+)
+
+// PasswordMode is how the password (if any) is applied to the archive.
+type PasswordMode string
+
+const (
+	// PasswordNone — no encryption. Bundle into a Store-mode .zip and
+	// stop there. Fastest path.
+	PasswordNone PasswordMode = ""
+
+	// PasswordStandard — zip-native AES-256 per file. ANY zip tool with
+	// AES support (7-Zip, Keka, modern macOS Finder, WinRAR) can decrypt
+	// with the password. Portable; file list metadata (names, sizes)
+	// is visible without the password, contents are not.
+	PasswordStandard PasswordMode = "standard"
+
+	// PasswordMaximum — zip-native AES-256 + DSAES2 wrapper on top.
+	// Slower (two layers) but only DumpSock decrypts the result, and
+	// the outer wrapper hides the file list entirely. Defense-in-depth.
+	PasswordMaximum PasswordMode = "maximum"
 )
 
 // PackageProgress is fed to PackageZip's / EncryptFile's OnProgress
@@ -57,10 +81,20 @@ type PackageProgress struct {
 //
 // Naming: outputRoot=/x/y/MyPhone → /x/y/MyPhone/MyPhone.zip. Conflicts
 // (e.g. an old archive from a previous run) get -1, -2, … suffix.
-func PackageZip(ctx context.Context, outputRoot string, onProgress func(PackageProgress)) (string, error) {
+//
+// password / mode behaviour:
+//   - mode==PasswordNone or password=="" → plain Store-mode zip, no
+//     encryption. Fastest path.
+//   - mode==PasswordStandard | PasswordMaximum → each file is encrypted
+//     with per-file AES-256 using the password (WinZip/PKWare AE-2,
+//     decryptable by 7-Zip / Keka / modern Finder). Standard finishes
+//     here; Maximum's caller then runs EncryptFile on the produced zip
+//     to add a DSAES2 wrapper.
+func PackageZip(ctx context.Context, outputRoot, password string, mode PasswordMode, onProgress func(PackageProgress)) (string, error) {
 	if outputRoot == "" {
 		return "", errors.New("PackageZip: empty outputRoot")
 	}
+	encrypt := password != "" && mode != PasswordNone
 	cleaned := filepath.Clean(outputRoot)
 	leaf := filepath.Base(cleaned)
 	zipPath := freeName(filepath.Join(cleaned, leaf+".zip"))
@@ -144,8 +178,16 @@ func PackageZip(ctx context.Context, outputRoot string, onProgress func(PackageP
 		// zip.Store = no compression. Already-compressed media (HEIC,
 		// JPEG, H.264) gains <1% from Deflate and costs CPU-hours on a
 		// real-world backup. Operator-reported "packaging takes
-		// FOREVER" on 2026-05-18 — fixed by switching to Store.
+		// FOREVER" on 2026-05-18 — fixed by switching to Store. We keep
+		// Store even when AES encryption is on; the per-file AES layer
+		// is fast enough (~few GB/s with AES-NI) that Deflate would
+		// still dominate runtime AND save nothing on already-compressed
+		// content.
 		header.Method = zip.Store
+		if encrypt {
+			header.SetPassword(password)
+			header.SetEncryptionMethod(zip.AES256Encryption)
+		}
 		w, err := zw.CreateHeader(header)
 		if err != nil {
 			return err

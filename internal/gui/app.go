@@ -86,13 +86,17 @@ type BackupRequest struct {
 	DeleteAfter bool   `json:"delete_after"`
 	ConfirmDel  bool   `json:"confirm_delete"`
 
-	// Post-backup packaging (2026-05-17). When Compress=true we walk
-	// OutputRoot after a successful pull and emit a sibling .zip. When
-	// Password is non-empty we additionally AES-256-GCM the .zip into
-	// a .zip.aes file (key = PBKDF2-SHA256 of the password). Password
-	// implies Compress.
-	Compress bool   `json:"compress"`
-	Password string `json:"password,omitempty"`
+	// Post-backup packaging (2026-05-17, expanded 2026-05-18).
+	//   Compress=true → produce <outputRoot>/<leaf>.zip (Store mode).
+	//   Password non-empty + PasswordMode="" or "standard" → encrypt
+	//     each file in the zip with WinZip-AE-2 AES-256. Any zip tool
+	//     with AES support (7-Zip, Keka, Finder, WinRAR) can decrypt.
+	//   Password non-empty + PasswordMode="maximum" → above PLUS wrap
+	//     the produced zip in DumpSock's DSAES2 container (AES-256-GCM
+	//     PBKDF2-SHA256). Slower but only DumpSock decrypts the result.
+	Compress     bool   `json:"compress"`
+	Password     string `json:"password,omitempty"`
+	PasswordMode string `json:"password_mode,omitempty"` // "" | "standard" | "maximum"
 
 	// OnlyPaths, when non-empty, restricts the pull to exactly these
 	// remote AFC paths (set from the Browse tab's checkbox selection).
@@ -733,17 +737,25 @@ func (a *App) StartBackup(req BackupRequest) (string, error) {
 					BytesPulled: pp.BytesDone,
 				})
 			}
-			zipPath, pErr := backup.PackageZip(ctx, opts.OutputRoot, packProgress)
+			mode := backup.PasswordMode(req.PasswordMode)
+			if req.Password == "" {
+				mode = backup.PasswordNone
+			} else if mode == "" {
+				mode = backup.PasswordStandard
+			}
+			zipPath, pErr := backup.PackageZip(ctx, opts.OutputRoot, req.Password, mode, packProgress)
 			if pErr != nil {
 				payload["package_error"] = pErr.Error()
 			} else {
 				payload["zip_path"] = zipPath
-				if req.Password != "" {
+				// Maximum mode adds the DSAES2 outer wrapper on top of
+				// the password-encrypted zip; only DumpSock decrypts.
+				if mode == backup.PasswordMaximum {
 					encPath, eErr := backup.EncryptFile(zipPath, req.Password, packProgress)
 					if eErr != nil {
 						payload["package_error"] = eErr.Error()
 					} else {
-						_ = os.Remove(zipPath) // intermediate plain zip
+						_ = os.Remove(zipPath) // intermediate inner zip
 						payload["encrypted_path"] = encPath
 					}
 				}

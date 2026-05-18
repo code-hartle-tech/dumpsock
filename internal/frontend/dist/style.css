@@ -863,6 +863,28 @@ input[type="text"]:focus, input[type="date"]:focus {
 }
 .password-error { color: var(--danger); min-height: 18px; font-size: 12px; margin-bottom: 8px; }
 
+/* Standard vs Maximum password-mode radio (Settings → Archive after backup) */
+.password-mode-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: var(--subtle);
+  border-radius: var(--radius-input);
+  border-left: 3px solid var(--primary);
+}
+.password-mode-row .radio {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.password-mode-row .radio input[type="radio"] { margin-top: 4px; }
+.password-mode-row .radio b { display: block; font-size: 13px; color: var(--ink); }
+.password-mode-row .radio em { display: block; font-size: 11px; color: var(--dark-gray); font-style: normal; margin-top: 2px; }
+
 /* ── browse tab ────────────────────────────────────────────────────── */
 .browse-source-row {
   display: flex;

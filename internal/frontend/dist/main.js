@@ -499,6 +499,12 @@
     const wantsDelete = $("#delete-after").checked;
     const wantsCompress = $("#dash-compress").checked;
     const wantsEncrypt = $("#dash-encrypt").checked;
+    // Password mode: which radio is selected under the encrypt checkbox.
+    let passwordMode = "";
+    if (wantsEncrypt) {
+      const checked = document.querySelector('input[name="password-mode"]:checked');
+      passwordMode = checked ? checked.value : "standard";
+    }
     return {
       udid: (state.device && state.device.udid) || "",
       output_root: state.outputDir,
@@ -514,6 +520,7 @@
       // Encryption implies compression — we encrypt the produced zip.
       compress: wantsCompress || wantsEncrypt,
       password: wantsEncrypt ? (state.backupPassword || "") : "",
+      password_mode: passwordMode,
     };
   }
   async function startPull() {
@@ -1035,14 +1042,14 @@
       catch (e) { toast("Could not reveal: " + (e.message || e)); }
     });
 
-    // Dashboard pull-options: Password-protect is meaningless without
-    // a .zip to encrypt (the engine encrypts the produced archive, not
-    // a folder tree), so disable it whenever Compress is unchecked.
-    // Unchecking Compress while Encrypt was on also clears Encrypt so
-    // the user can't end up with a stale "encrypt: yes / compress: no"
-    // state on submit.
+    // Settings → Archive after backup: Password-protect is meaningless
+    // without a .zip to encrypt (engine encrypts the produced archive,
+    // not a folder tree), so it stays disabled until Bundle is ticked.
+    // The Standard/Maximum radio is shown only when Password-protect
+    // is checked.
     const compressCb = $("#dash-compress");
     const encryptCb  = $("#dash-encrypt");
+    const modeRow    = $("#password-mode-row");
     function syncEncryptState() {
       if (!compressCb || !encryptCb) return;
       const enabled = compressCb.checked;
@@ -1050,8 +1057,10 @@
       const label = encryptCb.closest("label");
       if (label) label.classList.toggle("disabled", !enabled);
       if (!enabled) encryptCb.checked = false;
+      if (modeRow) modeRow.hidden = !encryptCb.checked;
     }
     if (compressCb) compressCb.addEventListener("change", syncEncryptState);
+    if (encryptCb) encryptCb.addEventListener("change", syncEncryptState);
     syncEncryptState();
 
     // Backups list
