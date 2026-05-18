@@ -32,6 +32,7 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 	root.AddCommand(newDevicesCmd(stdout, stderr))
 	root.AddCommand(newPullCmd(stdout, stderr))
 	root.AddCommand(newVersionCmd(stdout))
+	root.AddCommand(newDecryptCmd(stdout, stderr))
 	// Phase 6-7 scope expansion (2026-05-17). Both subcommands are
 	// scaffolds today; runtime returns ErrNotImplemented.
 	root.AddCommand(newICloudCmd(stdout, stderr))

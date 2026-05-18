@@ -824,7 +824,19 @@
             toast("Touch ID enrolled — next backup will skip the password prompt.", 6000);
           })
           .catch((e) => {
-            toast("Couldn't enroll Touch ID: " + (e.message || e), 6000);
+            const msg = (e.message || e).toString();
+            // The unsigned-binary case ("errSecMissingEntitlement" or
+            // SecAccessControl returning NULL) is by far the most
+            // common reason this fails in dev. Surface it concretely.
+            if (msg.includes("errSecMissingEntitlement") || msg.includes("SecAccessControlCreateWithFlags returned NULL")) {
+              toast("Touch ID needs a code-signed DumpSock build — coming in Phase 4 (notarized release). Your password worked for this backup; just type it next time.", 9000);
+              // Untick the checkbox so the user doesn't keep retrying.
+              const cb = $("#use-biometric");
+              if (cb) cb.checked = false;
+              state.enrollAfterBackup = false;
+            } else {
+              toast("Couldn't enroll Touch ID: " + msg, 8000);
+            }
           });
       }
       // Toast the artifact path explicitly — the done-banner can be

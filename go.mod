@@ -4,8 +4,13 @@ go 1.24
 
 require (
 	github.com/danielpaulus/go-ios v1.0.213
+	github.com/evanoberholster/imagemeta v1.0.0
 	github.com/spf13/cobra v1.10.2
 	github.com/wailsapp/wails/v2 v2.12.0
+	github.com/yeka/zip v0.0.0-20231116150916-03d6312748a9
+	golang.org/x/crypto v0.33.0
+	golang.org/x/term v0.29.0
+	howett.net/plist v1.0.2-0.20250314012144-ee69052608d9
 )
 
 require (
@@ -13,7 +18,6 @@ require (
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/bep/debounce v1.2.1 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
-	github.com/evanoberholster/imagemeta v1.0.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -43,9 +47,7 @@ require (
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/wailsapp/go-webview2 v1.0.22 // indirect
 	github.com/wailsapp/mimetype v1.4.1 // indirect
-	github.com/yeka/zip v0.0.0-20231116150916-03d6312748a9 // indirect
 	go.mozilla.org/pkcs7 v0.0.0-20210826202110-33d05740a352 // indirect
-	golang.org/x/crypto v0.33.0 // indirect
 	golang.org/x/exp v0.0.0-20230725093048-515e97ebf090 // indirect
 	golang.org/x/mod v0.23.0 // indirect
 	golang.org/x/net v0.35.0 // indirect
@@ -53,6 +55,5 @@ require (
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 	golang.org/x/tools v0.30.0 // indirect
-	howett.net/plist v1.0.2-0.20250314012144-ee69052608d9 // indirect
 	software.sslmate.com/src/go-pkcs12 v0.2.0 // indirect
 )

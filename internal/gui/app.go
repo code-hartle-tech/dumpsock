@@ -561,6 +561,30 @@ func (a *App) BrowseApp(udid, bundleID, relPath string) ([]afc.Entry, error) {
 	return cl.List(relPath)
 }
 
+// DecryptArchive runs backup.DecryptFile on src using password. If
+// outPath is empty we pick <src-without-.aes> and refuse to overwrite
+// an existing file. Returns the produced path on success. Surfaced
+// to the frontend so a "Decrypt this archive" button on the Backups
+// tab can call straight in.
+func (a *App) DecryptArchive(srcPath, outPath, password string) (string, error) {
+	if srcPath == "" {
+		return "", errors.New("DecryptArchive: empty srcPath")
+	}
+	if _, err := os.Stat(srcPath); err != nil {
+		return "", fmt.Errorf("source not readable: %w", err)
+	}
+	if outPath == "" {
+		outPath = strings.TrimSuffix(srcPath, ".aes")
+		if outPath == srcPath {
+			outPath = srcPath + ".decrypted"
+		}
+	}
+	if _, err := os.Stat(outPath); err == nil {
+		return "", fmt.Errorf("output already exists: %s", outPath)
+	}
+	return backup.DecryptFile(srcPath, outPath, password)
+}
+
 // BiometricsAvailable reports whether the OS can present a Touch ID
 // (or login-password fallback) prompt. Linux/Windows builds always
 // return false. The Settings UI greys the "Use Touch ID" toggle when
@@ -755,6 +779,30 @@ func (a *App) StartBackup(req BackupRequest) (string, error) {
 		payload := map[string]any{"result": res}
 		if err != nil {
 			payload["error"] = err.Error()
+		}
+
+		// Auto-register the outputRoot in KnownBackups so the Backups
+		// tab's saved-list populates without requiring the user to pick
+		// a "new" folder via Choose…. Operator-reported fix 2026-05-18.
+		// Only on successful (or partially-successful) runs — failures
+		// don't make a folder a "saved backup."
+		if err == nil && !req.DryRun {
+			a.mu.Lock()
+			seen := false
+			for _, p := range a.cfg.KnownBackups {
+				if p == opts.OutputRoot {
+					seen = true
+					break
+				}
+			}
+			if !seen && opts.OutputRoot != "" {
+				a.cfg.KnownBackups = append(a.cfg.KnownBackups, opts.OutputRoot)
+				cfg := a.cfg
+				a.mu.Unlock()
+				_ = saveConfig(cfg)
+			} else {
+				a.mu.Unlock()
+			}
 		}
 
 		// Post-backup packaging. Compress=true → produce

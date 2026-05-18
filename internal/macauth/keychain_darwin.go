@@ -138,6 +138,7 @@ import "C"
 
 import (
 	"errors"
+	"fmt"
 	"unsafe"
 )
 
@@ -155,11 +156,35 @@ func StorePassword(password string) error {
 		return errors.New("StorePassword: empty password")
 	}
 	b := []byte(password)
-	st := C.dsStorePassword((*C.char)(unsafe.Pointer(&b[0])), C.size_t(len(b)))
+	st := int32(C.dsStorePassword((*C.char)(unsafe.Pointer(&b[0])), C.size_t(len(b))))
 	if st != 0 {
-		return errors.New("keychain store failed")
+		return fmt.Errorf("keychain store failed: %s", osStatusName(st))
 	}
 	return nil
+}
+
+// osStatusName translates the OSStatus codes we hit most often into a
+// human-readable explanation. Surfaces what's actually wrong instead
+// of leaving the operator staring at "keychain store failed."
+func osStatusName(st int32) string {
+	switch st {
+	case -34018:
+		return "errSecMissingEntitlement (-34018) — DumpSock isn't signed with a Developer ID. Touch ID-gated Keychain entries require the app to be signed; this works once Phase 4 codesigning ships. Use the typed password flow for now."
+	case -25291:
+		return "errSecNotAvailable (-25291) — Keychain isn't available (login keychain locked or missing). Unlock it in Keychain Access and retry."
+	case -25299:
+		return "errSecDuplicateItem (-25299) — A prior Touch ID entry exists and couldn't be replaced. This shouldn't happen since we delete-before-add; report if it persists."
+	case -25300:
+		return "errSecItemNotFound (-25300) — Expected when no item exists yet; should never appear on store."
+	case -25303:
+		return "errSecNoSuchKeychain (-25303) — Default keychain not found."
+	case -25308:
+		return "errSecInteractionNotAllowed (-25308) — Keychain wouldn't unlock without UI; should not happen on store."
+	case -1:
+		return "-1 — SecAccessControlCreateWithFlags returned NULL. Usually means the binary isn't signed (BiometryCurrentSet ACLs require Developer ID signing on macOS 11+)."
+	default:
+		return fmt.Sprintf("OSStatus %d (look up in <Security/SecBase.h>)", st)
+	}
 }
 
 // LoadPassword presents the Touch ID sheet (or login-password fallback)
