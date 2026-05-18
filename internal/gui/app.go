@@ -26,6 +26,7 @@ import (
 	"github.com/code-hartle-tech/dumpsock/internal/backup"
 	"github.com/code-hartle-tech/dumpsock/internal/branding"
 	"github.com/code-hartle-tech/dumpsock/internal/compare"
+	"github.com/code-hartle-tech/dumpsock/internal/macauth"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -558,6 +559,41 @@ func (a *App) BrowseApp(udid, bundleID, relPath string) ([]afc.Entry, error) {
 	}
 	defer cl.Close()
 	return cl.List(relPath)
+}
+
+// BiometricsAvailable reports whether the OS can present a Touch ID
+// (or login-password fallback) prompt. Linux/Windows builds always
+// return false. The Settings UI greys the "Use Touch ID" toggle when
+// this is false.
+func (a *App) BiometricsAvailable() bool {
+	return macauth.Available()
+}
+
+// HasBiometricPassword reports whether the user has already enrolled a
+// backup password behind Touch ID. Cheap, doesn't prompt — the UI
+// calls this on Settings-tab open.
+func (a *App) HasBiometricPassword() bool {
+	return macauth.HasPassword()
+}
+
+// EnrollBiometricPassword stores `password` in Keychain behind a
+// biometry-current-set access control. Future LoadBiometricPassword
+// calls will present a Touch ID sheet. Idempotent — overwrites any
+// existing entry.
+func (a *App) EnrollBiometricPassword(password string) error {
+	return macauth.StorePassword(password)
+}
+
+// LoadBiometricPassword presents the Touch ID sheet and returns the
+// stored password. The system blocks the calling goroutine while the
+// sheet is up — Wails bindings run off the UI thread, so this is fine.
+func (a *App) LoadBiometricPassword() (string, error) {
+	return macauth.LoadPassword("Unlock your DumpSock backup password")
+}
+
+// ClearBiometricPassword wipes the stored entry. Doesn't prompt.
+func (a *App) ClearBiometricPassword() error {
+	return macauth.ClearPassword()
 }
 
 // pickDevice resolves a UDID to a go-ios DeviceEntry. Empty UDID picks

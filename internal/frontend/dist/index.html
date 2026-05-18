@@ -621,6 +621,14 @@
                     <em>Standard + a DSAES2 wrapper on top (AES-256-GCM streamed in 1 MiB chunks, PBKDF2-SHA256 200k iters). Slower (two layers) but only DumpSock decrypts AND the outer wrapper hides the file list itself.</em>
                   </span>
                 </label>
+                <label class="check compact" id="biometric-row" hidden>
+                  <input type="checkbox" id="use-biometric">
+                  <span>
+                    <b>Use Touch ID instead of typing</b>
+                    <em>Saves your password in macOS Keychain behind a biometric prompt (kSecAccessControlBiometryCurrentSet — the entry self-invalidates if your fingerprints change). Future backups ask the sensor instead of you. The archive stays portable — typing the password on another Mac still works.</em>
+                    <em id="biometric-status" class="muted small"></em>
+                  </span>
+                </label>
               </div>
             </div>
 

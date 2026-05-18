@@ -529,13 +529,31 @@
     if (!state.device) { toast("Plug an iPhone in first."); return; }
     if (!(await ensureOutputDir())) return;
     if (wantsEncrypt) {
-      // Prompt for password BEFORE any destructive choice (delete-after
-      // confirm) so the user can back out without nuking phone state.
-      const pw = await promptPassword();
-      if (pw === null) return; // user cancelled
+      const useBio = $("#use-biometric") && $("#use-biometric").checked;
+      let pw = null;
+      // If Touch ID is enrolled, fetch the saved password via biometric
+      // unlock — skips the password modal entirely.
+      if (useBio && state.biometricEnrolled) {
+        try {
+          pw = await window.go.gui.App.LoadBiometricPassword();
+        } catch (e) {
+          toast("Touch ID unlock failed (" + (e.message || e) + ") — falling back to typed password.", 5000);
+          pw = null;
+        }
+      }
+      if (pw === null) {
+        // Either Touch ID not enrolled / not asked / failed → prompt.
+        pw = await promptPassword();
+        if (pw === null) return; // user cancelled
+        // If the user wants to enroll, stash the freshly-typed password
+        // in Keychain AFTER the backup runs (don't risk enrolling a
+        // password the user mistyped before they actually use it).
+        state.enrollAfterBackup = useBio && !state.biometricEnrolled;
+      }
       state.backupPassword = pw;
     } else {
       state.backupPassword = "";
+      state.enrollAfterBackup = false;
     }
     if (wantsDelete) { $("#delete-confirm").hidden = false; return; }
     await launchBackup(false);
@@ -792,6 +810,23 @@
       // Reveal the "View in Finder" button only once a real backup has run.
       const revealBtn = $("#btn-reveal-output");
       if (revealBtn) revealBtn.hidden = false;
+      // If the user opted into Touch ID and this is the first backup
+      // since enrollment, stash the password they just used. We only
+      // do this on successful packaging — no point persisting a
+      // password for an archive that didn't ship.
+      if (state.enrollAfterBackup && state.backupPassword && !payload.package_error) {
+        window.go.gui.App.EnrollBiometricPassword(state.backupPassword)
+          .then(() => {
+            state.biometricEnrolled = true;
+            state.enrollAfterBackup = false;
+            const statusEl = $("#biometric-status");
+            if (statusEl) statusEl.textContent = "Enrolled. Future backups prompt Touch ID instead of asking for the password.";
+            toast("Touch ID enrolled — next backup will skip the password prompt.", 6000);
+          })
+          .catch((e) => {
+            toast("Couldn't enroll Touch ID: " + (e.message || e), 6000);
+          });
+      }
       // Toast the artifact path explicitly — the done-banner can be
       // missed if the user has already switched tabs.
       const archivePath = payload.encrypted_path || payload.zip_path || "";
@@ -1050,6 +1085,9 @@
     const compressCb = $("#dash-compress");
     const encryptCb  = $("#dash-encrypt");
     const modeRow    = $("#password-mode-row");
+    const biometricRow = $("#biometric-row");
+    const useBiometricCb = $("#use-biometric");
+    const biometricStatus = $("#biometric-status");
     function syncEncryptState() {
       if (!compressCb || !encryptCb) return;
       const enabled = compressCb.checked;
@@ -1062,6 +1100,51 @@
     if (compressCb) compressCb.addEventListener("change", syncEncryptState);
     if (encryptCb) encryptCb.addEventListener("change", syncEncryptState);
     syncEncryptState();
+
+    // Touch ID enrollment status. Probe once on app start so the
+    // Settings row appears (or stays hidden on Linux/Windows). The
+    // checkbox reflects whether a password is already enrolled; the
+    // status line below adapts to the current state.
+    (async function initBiometric() {
+      if (!biometricRow || !useBiometricCb) return;
+      let available = false;
+      try { available = await window.go.gui.App.BiometricsAvailable(); } catch {}
+      if (!available) {
+        // Linux/Windows or Mac without login password → leave hidden.
+        biometricRow.hidden = true;
+        return;
+      }
+      biometricRow.hidden = false;
+      let enrolled = false;
+      try { enrolled = await window.go.gui.App.HasBiometricPassword(); } catch {}
+      useBiometricCb.checked = !!enrolled;
+      state.biometricEnrolled = !!enrolled;
+      renderBiometricStatus();
+    })();
+
+    function renderBiometricStatus() {
+      if (!biometricStatus) return;
+      biometricStatus.textContent = state.biometricEnrolled
+        ? "Enrolled. Future backups prompt Touch ID instead of asking for the password."
+        : "Not enrolled. Tick this box and run a backup — your password gets stored in Keychain afterward.";
+    }
+
+    if (useBiometricCb) useBiometricCb.addEventListener("change", async () => {
+      // Unchecking → clear the stored password immediately.
+      if (!useBiometricCb.checked && state.biometricEnrolled) {
+        try {
+          await window.go.gui.App.ClearBiometricPassword();
+          state.biometricEnrolled = false;
+          renderBiometricStatus();
+          toast("Touch ID password cleared from Keychain.");
+        } catch (e) {
+          toast("Could not clear Keychain entry: " + (e.message || e));
+        }
+      }
+      // Checking the box does NOT immediately enroll — we wait until the
+      // user types their password (next backup) and stash it then.
+      renderBiometricStatus();
+    });
 
     // Backups list
     const btnRefreshBackups = $("#btn-refresh-backups");
