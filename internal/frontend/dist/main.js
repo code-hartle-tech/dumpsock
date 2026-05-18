@@ -254,6 +254,7 @@
         <div class="backup-row-actions">
           <button class="btn ghost small" data-act="reveal" ${e.reachable ? "" : "disabled"}>Reveal</button>
           ${aesArchive ? `<button class="btn ghost small" data-act="decrypt">Decrypt</button>` : ""}
+          ${aesArchive ? `<button class="btn ghost small" data-act="decrypt-unarchive">Decrypt &amp; unarchive</button>` : ""}
           <button class="btn ghost small" data-act="move">Move…</button>
           <button class="btn ghost small" data-act="forget">Forget</button>
         </div>
@@ -264,6 +265,25 @@
       });
       const decryptBtn = row.querySelector('[data-act="decrypt"]');
       if (decryptBtn && aesArchive) decryptBtn.addEventListener("click", () => decryptFlow(aesArchive));
+      const decryptUnarchiveBtn = row.querySelector('[data-act="decrypt-unarchive"]');
+      if (decryptUnarchiveBtn && aesArchive) decryptUnarchiveBtn.addEventListener("click", async () => {
+        let pw;
+        try { pw = await promptDecryptPassword(aesArchive); }
+        catch (err) { toast("Password prompt failed: " + (err && err.message || err)); return; }
+        if (pw === null) return;
+        setTab("backups");
+        resetProgressUI();
+        $("#progress-phase").textContent = "Decrypting archive…";
+        toast("Decrypting & unarchiving " + aesArchive.split("/").pop() + "…", 60000);
+        try {
+          const folder = await window.go.gui.App.DecryptAndExtractArchive(aesArchive, pw);
+          toast("Extracted to " + folder, 12000);
+          try { await window.go.gui.App.RevealInFinder(folder); } catch {}
+          refreshBackupsList();
+        } catch (err) {
+          toast("Decrypt & unarchive failed: " + (err && err.message || err), 10000);
+        }
+      });
       row.querySelector("[data-act=move]").addEventListener("click", async () => {
         try {
           const picked = await window.go.gui.App.PickOutputFolder("Move backup to…");
@@ -796,6 +816,7 @@
       case "packaging":  return "Bundling into .zip…";
       case "encrypting": return "Encrypting archive…";
       case "decrypting": return "Decrypting archive…";
+      case "extracting": return "Unarchiving files…";
       case "done":       return "Done";
       case "error":      return "Error";
       default:           return ev.phase;
@@ -946,12 +967,22 @@
       // missed if the user has already switched tabs.
       const archivePath = payload.encrypted_path || payload.zip_path || "";
       if (archivePath) {
-        // Stash so the Reveal Archive button (below) knows what to open.
+        // Stash so the Reveal Archive + Decrypt-and-Unarchive buttons
+        // (below + on the Last Backup card) know what to open.
         state.lastArchivePath = archivePath;
+        state.lastArchiveEncrypted = !!payload.encrypted_path;
         const btnRevealArchive = $("#btn-reveal-archive");
         if (btnRevealArchive) btnRevealArchive.hidden = false;
+        // Only show Decrypt & Unarchive when the archive is encrypted
+        // (a plain .zip can be opened by Finder; no need for our flow).
+        const btnDU = $("#btn-decrypt-unarchive");
+        if (btnDU) btnDU.hidden = !payload.encrypted_path;
+        const btnLastDU = $("#btn-last-decrypt-unarchive");
+        if (btnLastDU) btnLastDU.hidden = !payload.encrypted_path;
         toast((payload.encrypted_path ? "Encrypted archive at: " : "Archive at: ") + archivePath +
-              " — click 'Reveal archive' in the done banner to open in Finder.", 10000);
+              (payload.encrypted_path
+                ? " — use 'Decrypt & unarchive' on the done banner or Dashboard."
+                : " — click 'Reveal archive' in the done banner."), 10000);
       }
     }
   }
@@ -1191,6 +1222,33 @@
       try { await window.go.gui.App.RevealFileInFinder(p); }
       catch (e) { toast("Could not reveal: " + (e.message || e)); }
     });
+
+    // Decrypt & Unarchive buttons (done banner + Last Backup card).
+    // Both target state.lastArchivePath and run the combined flow:
+    // prompt password → decrypt to a sibling .zip → extract to a
+    // sibling folder → drop the intermediate zip → reveal the folder.
+    async function decryptAndUnarchiveFlow(archivePath) {
+      if (!archivePath) { toast("No encrypted archive to decrypt."); return; }
+      let pw;
+      try { pw = await promptDecryptPassword(archivePath); }
+      catch (e) { toast("Password prompt failed: " + (e && e.message || e)); return; }
+      if (pw === null) return;
+      setTab("backups");
+      resetProgressUI();
+      $("#progress-phase").textContent = "Decrypting archive…";
+      toast("Decrypting & unarchiving " + archivePath.split("/").pop() + "…", 60000);
+      try {
+        const folder = await window.go.gui.App.DecryptAndExtractArchive(archivePath, pw);
+        toast("Extracted to " + folder, 12000);
+        try { await window.go.gui.App.RevealInFinder(folder); } catch {}
+      } catch (e) {
+        toast("Decrypt & unarchive failed: " + (e && e.message || e), 10000);
+      }
+    }
+    const btnDU = $("#btn-decrypt-unarchive");
+    if (btnDU) btnDU.addEventListener("click", () => decryptAndUnarchiveFlow(state.lastArchivePath));
+    const btnLastDU = $("#btn-last-decrypt-unarchive");
+    if (btnLastDU) btnLastDU.addEventListener("click", () => decryptAndUnarchiveFlow(state.lastArchivePath));
 
     // Settings → Archive after backup: Password-protect is meaningless
     // without a .zip to encrypt (engine encrypts the produced archive,

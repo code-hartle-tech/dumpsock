@@ -742,9 +742,65 @@ func (a *App) DecryptArchive(srcPath, outPath, password string) (string, error) 
 			Phase:       pp.Phase, // "decrypting"
 			BytesTotal:  pp.BytesTotal,
 			BytesPulled: pp.BytesDone,
+			Current:     pp.Current,
 		})
 	}
 	return backup.DecryptFile(srcPath, outPath, password, onProgress)
+}
+
+// DecryptAndExtractArchive does the full "decrypt → unzip → drop the
+// intermediate .zip → return the extracted folder" pipeline so the
+// operator can go from .zip.aes to a browsable folder in one click.
+// Surfaced next to the existing Reveal-archive / Last-Backup actions
+// (operator preference 2026-05-18 "there should be a decrypt &
+// unarchive next to last backup & reveal").
+//
+// Progress emits backup:progress events with two phases:
+//   - "decrypting" — DSAES2 chunk decrypt
+//   - "extracting" — zip entries unpacked
+// The frontend's existing byte-bar handles both.
+func (a *App) DecryptAndExtractArchive(srcPath, password string) (string, error) {
+	if srcPath == "" {
+		return "", errors.New("DecryptAndExtractArchive: empty srcPath")
+	}
+	if _, err := os.Stat(srcPath); err != nil {
+		return "", fmt.Errorf("source not readable: %w", err)
+	}
+	// 1) Decrypt to a sibling .zip (auto-suffix if taken).
+	intermediateZip := strings.TrimSuffix(srcPath, ".aes")
+	if intermediateZip == srcPath {
+		intermediateZip = srcPath + ".decrypted.zip"
+	}
+	if _, err := os.Stat(intermediateZip); err == nil {
+		intermediateZip = nextFreeName(intermediateZip)
+	}
+	progress := func(pp backup.PackageProgress) {
+		wruntime.EventsEmit(a.ctx, "backup:progress", backup.ProgressEvent{
+			Phase:       pp.Phase, // "decrypting" or "extracting"
+			BytesTotal:  pp.BytesTotal,
+			BytesPulled: pp.BytesDone,
+			Current:     pp.Current,
+		})
+	}
+	if _, err := backup.DecryptFile(srcPath, intermediateZip, password, progress); err != nil {
+		return "", fmt.Errorf("decrypt: %w", err)
+	}
+	// 2) Extract to a sibling folder.
+	dstDir := strings.TrimSuffix(intermediateZip, ".zip")
+	if dstDir == intermediateZip {
+		dstDir = intermediateZip + ".extracted"
+	}
+	if _, err := os.Stat(dstDir); err == nil {
+		dstDir = nextFreeName(dstDir)
+	}
+	if _, err := backup.ExtractZip(a.ctx, intermediateZip, dstDir, "", progress); err != nil {
+		// Leave the .zip in place so the operator can retry without
+		// re-decrypting the (slow) outer container.
+		return "", fmt.Errorf("extract: %w (decrypted zip kept at %s)", err, intermediateZip)
+	}
+	// 3) Drop the intermediate zip — extraction succeeded.
+	_ = os.Remove(intermediateZip)
+	return dstDir, nil
 }
 
 // nextFreeName returns base if it doesn't exist, otherwise base with

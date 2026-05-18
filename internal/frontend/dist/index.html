@@ -178,7 +178,10 @@
           <div class="card last-backup-card clickable" id="last-backup-card" title="Open the backup folder in Finder">
             <div class="card-head">
               <h3>Last Backup</h3>
-              <button class="btn ghost small" id="btn-reveal-output" hidden>View in Finder</button>
+              <div style="display:flex; gap:6px;">
+                <button class="btn ghost small" id="btn-reveal-output" hidden>View in Finder</button>
+                <button class="btn ghost small" id="btn-last-decrypt-unarchive" hidden>Decrypt &amp; unarchive</button>
+              </div>
             </div>
             <div class="last-backup-body">
               <div class="last-backup-time" id="last-backup-time">No backups recorded yet</div>
@@ -485,6 +488,7 @@
               <div class="done-actions">
                 <button class="btn primary" id="btn-reveal">Open the folder</button>
                 <button class="btn ghost" id="btn-reveal-archive" hidden>Reveal archive</button>
+                <button class="btn ghost" id="btn-decrypt-unarchive" hidden>Decrypt &amp; unarchive</button>
                 <button class="btn ghost" id="btn-again">Dump again</button>
               </div>
             </div>
