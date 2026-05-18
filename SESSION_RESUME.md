@@ -13,8 +13,8 @@
 | 0 — scaffold | ✅ `5bc2647` |
 | 1 — Go CLI feature parity + icloudpd extras | ✅ merged |
 | 2 — Wails desktop GUI | ✅ shipped, blue-bg icon (#66D1FF) adopted |
-| **2.5 — operator's 10-item sweep + nonnegotiable retrofit** | 🟢 **17 of 22 tasks validated + committed (`dfbe600` + `bbfe540`). 5 in-flight, operator-blocked.** |
-| 6 — MobileBackup2 backup engine | scaffolded (`internal/mb2/`, `dumpsock backup-device` CLI) |
+| **2.5 — operator's 10-item sweep + nonnegotiable retrofit** | 🟢 **17 of 22 tasks validated + committed (`dfbe600` + `bbfe540`). 4 in-flight, operator-blocked.** |
+| **6 — MobileBackup2 backup engine** | 🟡 **Layer 1 (DeviceLink framing + handshake) DONE & validated on real iPhone at `4fee912`.** Layer 2 (dispatcher) is next. |
 | 7 — iCloud Photos download | scaffolded (`internal/icloud/`, `dumpsock icloud pull` CLI) |
 | 8 — backup inspection & extraction | future (replaces the "restore-to-device" non-goal) |
 
