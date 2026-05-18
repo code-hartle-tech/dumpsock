@@ -224,53 +224,63 @@
       return;
     }
     if (empty) empty.hidden = true;
+    // ONE ROW PER RUN — flatten (entry × history) into a single list
+    // sorted newest-first, then render. Operator preference 2026-05-18:
+    // "Each row, a new backup, if it's too many rows, scrollbar."
+    // Every row carries the full action set (Reveal, Decrypt, Decrypt
+    // & unarchive, Move, Forget) so the operator never loses access
+    // to decrypt regardless of which row they're looking at.
+    const rows = [];
     for (const e of entries) {
       const m = e.metadata || {};
-      const updated = m.updated_at ? new Date(m.updated_at) : null;
-      const updatedLabel = updated ? updated.toLocaleString() : "—";
-      const files = m.total_files || 0;
-      const bytes = humanBytes(m.total_bytes || 0);
+      const history = Array.isArray(m.history) ? m.history : [];
+      const runs = history.length ? history.slice() : [{
+        at: m.updated_at || m.created_at || null,
+        pulled: 0,
+        pre_skipped: 0, post_skipped: 0, errors: 0,
+        synthetic: true,
+      }];
+      for (const r of runs) rows.push({ entry: e, run: r });
+    }
+    rows.sort((a, b) => {
+      const ta = a.run.at ? new Date(a.run.at).getTime() : 0;
+      const tb = b.run.at ? new Date(b.run.at).getTime() : 0;
+      return tb - ta;
+    });
+
+    for (const { entry: e, run: r } of rows) {
+      const m = e.metadata || {};
+      const archives = Array.isArray(e.archives) ? e.archives : [];
+      // .dumpsock (brand) wins; fall through to legacy .zip.aes.
+      const aesArchive = archives.find((p) => p.endsWith(".dumpsock"))
+                     || archives.find((p) => p.endsWith(".zip.aes"))
+                     || "";
+      const when = r.at ? new Date(r.at).toLocaleString() : "—";
+      const pulled = r.pulled || 0;
+      const skipped = (r.pre_skipped || 0) + (r.post_skipped || 0);
+      const errs = r.errors || 0;
+      const segs = [];
+      if (r.synthetic) { segs.push(`${m.total_files || 0} files`); segs.push(humanBytes(m.total_bytes || 0)); }
+      else {
+        segs.push(`${pulled} pulled`);
+        if (skipped) segs.push(`${skipped} skipped`);
+        if (errs) segs.push(`${errs} errors`);
+      }
       const interruptedBadge = e.interrupted
         ? `<span class="pill warning"><span class="dot"></span>Interrupted</span>` : "";
       const missingBadge = !e.reachable
         ? `<span class="pill danger"><span class="dot"></span>Unavailable${e.volume ? ` · plug ${e.volume} back in` : ""}</span>`
         : "";
-      // Detect encrypted archive inside this backup folder. Drives the
-      // optional "Decrypt" button on the row.
-      const archives = Array.isArray(e.archives) ? e.archives : [];
-      const aesArchive = archives.find((p) => p.endsWith(".zip.aes")) || "";
-      const archiveBadge = archives.length
-        ? `<span class="pill info"><span class="dot"></span>${aesArchive ? "Encrypted archive present" : "Archive present"}</span>` : "";
+      const archiveBadge = aesArchive
+        ? `<span class="pill info"><span class="dot"></span>Encrypted</span>`
+        : (archives.length ? `<span class="pill info"><span class="dot"></span>Archived</span>` : "");
       const row = document.createElement("div");
       row.className = "backup-row" + (e.reachable ? "" : " unreachable");
-      // Render up to 5 recent runs from the .dumpsock.json history
-      // so the card shows each individual backup run inside the
-      // folder, not just the rolled-up totals. Operator request
-      // 2026-05-18 — "saved backup cards should show all backups in
-      // the backup folder."
-      const history = Array.isArray(m.history) ? m.history.slice(-5).reverse() : [];
-      const historyHTML = history.length ? `
-        <div class="backup-row-history muted small">
-          <div class="backup-row-history-head">${history.length} recent run${history.length === 1 ? "" : "s"}:</div>
-          ${history.map((r) => {
-            const when = r.at ? new Date(r.at).toLocaleString() : "—";
-            const pulled = r.pulled || 0;
-            const skipped = (r.pre_skipped || 0) + (r.post_skipped || 0);
-            const errs = r.errors || 0;
-            const segs = [`${pulled} pulled`];
-            if (skipped) segs.push(`${skipped} skipped`);
-            if (errs) segs.push(`${errs} errors`);
-            return `<div class="backup-row-history-row">· ${when} — ${segs.join(" · ")}</div>`;
-          }).join("")}
-        </div>` : "";
       row.innerHTML = `
         <div class="backup-row-main">
-          <div class="backup-row-title">${escapeHTML(m.device_name || "iPhone")} ${interruptedBadge} ${missingBadge} ${archiveBadge}</div>
+          <div class="backup-row-title">${escapeHTML(m.device_name || "iPhone")} · ${when} ${interruptedBadge} ${missingBadge} ${archiveBadge}</div>
           <div class="backup-row-path">${escapeHTML(e.path)}</div>
-          <div class="backup-row-meta muted small">
-            ${files} files · ${bytes} · last updated ${updatedLabel}
-          </div>
-          ${historyHTML}
+          <div class="backup-row-meta muted small">${segs.join(" · ")}</div>
         </div>
         <div class="backup-row-actions">
           <button class="btn ghost small" data-act="reveal" ${e.reachable ? "" : "disabled"}>Reveal</button>

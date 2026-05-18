@@ -124,7 +124,8 @@ func PackageZip(ctx context.Context, outputRoot, password string, mode PasswordM
 			name := d.Name()
 			if strings.HasPrefix(name, ".dumpsock") ||
 				strings.HasSuffix(name, ".zip") ||
-				strings.HasSuffix(name, ".zip.aes") {
+				strings.HasSuffix(name, ".zip.aes") ||
+				strings.HasSuffix(name, ".dumpsock") {
 				return nil
 			}
 			if info, _ := d.Info(); info != nil {
@@ -256,7 +257,8 @@ func PackageZip(ctx context.Context, outputRoot, password string, mode PasswordM
 				cp := filepath.Clean(p)
 				if cp == zipPath ||
 					strings.HasSuffix(name, ".zip") ||
-					strings.HasSuffix(name, ".zip.aes") {
+					strings.HasSuffix(name, ".zip.aes") ||
+					strings.HasSuffix(name, ".dumpsock") {
 					return nil
 				}
 			}
@@ -348,13 +350,20 @@ func EncryptFile(ctx context.Context, src, password string, onProgress func(Pack
 		return "", fmt.Errorf("gcm: %w", err)
 	}
 
-	dst = src + ".aes"
+	// Branded extension (operator preference 2026-05-18): replace
+	// `.zip` with `.dumpsock`; if src has no `.zip` suffix just append.
+	// Existing `.zip.aes` archives keep decrypting via the magic-byte
+	// header check in DecryptFile — only NEW archives get the new ext.
+	dst = strings.TrimSuffix(src, ".zip") + ".dumpsock"
+	if dst == src+".dumpsock" {
+		// src had no .zip suffix; the produced file becomes "src.dumpsock"
+	}
 	out, err := os.Create(dst)
 	if err != nil {
 		return "", fmt.Errorf("create dst: %w", err)
 	}
 	defer out.Close()
-	// Roll back the partial .aes on any failure (cancel, IO error,
+	// Roll back the partial output on any failure (cancel, IO error,
 	// short read, etc.) — operator preference 2026-05-18 ("cancel
 	// should rollback/remove whatever it is").
 	defer func() {

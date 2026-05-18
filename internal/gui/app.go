@@ -338,16 +338,20 @@ func (a *App) ListBackups() ([]BackupEntry, error) {
 			if s, _ := backup.ReadSession(p); s != nil {
 				entry.Interrupted = s
 			}
-			// Detect any .zip / .zip.aes sitting directly inside the
-			// backup folder so the Backups tab can show a Decrypt
-			// button. One level only — we don't recurse YYYY-MM-DD/.
+			// Detect any .zip / .zip.aes / .dumpsock sitting directly
+			// inside the backup folder so the Backups tab can show a
+			// Decrypt button. One level only — we don't recurse the
+			// YYYY-MM-DD/ subtree. `.dumpsock.json` (metadata) is
+			// excluded by the HasSuffix check — .json wins.
 			if dir, derr := os.ReadDir(p); derr == nil {
 				for _, e := range dir {
 					if e.IsDir() {
 						continue
 					}
 					name := e.Name()
-					if strings.HasSuffix(name, ".zip.aes") || strings.HasSuffix(name, ".zip") {
+					if strings.HasSuffix(name, ".dumpsock") ||
+						strings.HasSuffix(name, ".zip.aes") ||
+						strings.HasSuffix(name, ".zip") {
 						entry.Archives = append(entry.Archives, filepath.Join(p, name))
 					}
 				}
@@ -720,7 +724,8 @@ func (a *App) PickArchiveToDecrypt() (string, error) {
 	return wruntime.OpenFileDialog(a.ctx, wruntime.OpenDialogOptions{
 		Title: "Pick a DumpSock-encrypted archive",
 		Filters: []wruntime.FileFilter{
-			{DisplayName: "Encrypted archive (*.aes)", Pattern: "*.aes"},
+			{DisplayName: "DumpSock encrypted (*.dumpsock)", Pattern: "*.dumpsock"},
+			{DisplayName: "Legacy encrypted (*.aes)", Pattern: "*.aes"},
 			{DisplayName: "All files", Pattern: "*"},
 		},
 	})
@@ -740,7 +745,16 @@ func (a *App) DecryptArchive(srcPath, outPath, password string) (string, error) 
 		return "", fmt.Errorf("source not readable: %w", err)
 	}
 	if outPath == "" {
-		outPath = strings.TrimSuffix(srcPath, ".aes")
+		// Default decrypted output name. Strip the brand extension
+		// (.dumpsock) or legacy (.aes) and ensure a .zip suffix.
+		base := strings.TrimSuffix(srcPath, ".dumpsock")
+		if base == srcPath {
+			base = strings.TrimSuffix(srcPath, ".aes")
+		}
+		if !strings.HasSuffix(base, ".zip") {
+			base += ".zip"
+		}
+		outPath = base
 		if outPath == srcPath {
 			outPath = srcPath + ".decrypted"
 		}
@@ -783,8 +797,16 @@ func (a *App) DecryptAndExtractArchive(srcPath, password string) (string, error)
 	if _, err := os.Stat(srcPath); err != nil {
 		return "", fmt.Errorf("source not readable: %w", err)
 	}
-	// 1) Decrypt to a sibling .zip (auto-suffix if taken).
-	intermediateZip := strings.TrimSuffix(srcPath, ".aes")
+	// 1) Decrypt to a sibling .zip (auto-suffix if taken). Handles
+	// both new .dumpsock files and the legacy .aes naming.
+	base := strings.TrimSuffix(srcPath, ".dumpsock")
+	if base == srcPath {
+		base = strings.TrimSuffix(srcPath, ".aes")
+	}
+	if !strings.HasSuffix(base, ".zip") {
+		base += ".zip"
+	}
+	intermediateZip := base
 	if intermediateZip == srcPath {
 		intermediateZip = srcPath + ".decrypted.zip"
 	}
@@ -853,7 +875,8 @@ func removeRawTree(outputRoot string) error {
 		// bucket, stray files) goes.
 		if strings.HasPrefix(name, ".dumpsock") ||
 			strings.HasSuffix(name, ".zip") ||
-			strings.HasSuffix(name, ".zip.aes") {
+			strings.HasSuffix(name, ".zip.aes") ||
+			strings.HasSuffix(name, ".dumpsock") {
 			continue
 		}
 		_ = os.RemoveAll(filepath.Join(outputRoot, name))

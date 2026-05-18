@@ -791,7 +791,16 @@ input[type="text"]:focus, input[type="date"]:focus {
 }
 
 /* ── backups list ──────────────────────────────────────────────────── */
-.backups-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+/* Scroll once the list gets long enough to outgrow the visible area.
+   Operator preference 2026-05-18: "if it's too many rows, scrollbar." */
+.backups-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  max-height: 520px;
+  overflow-y: auto;
+}
 .backup-row {
   display: flex;
   align-items: center;
