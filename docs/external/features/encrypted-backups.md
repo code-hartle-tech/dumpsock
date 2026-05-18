@@ -10,12 +10,12 @@ DumpSock's default is a plain folder tree on disk — exactly what most people w
 
 ## How it works
 
-After a normal backup completes, DumpSock walks the output folder and produces a sibling archive:
+After a normal backup completes, DumpSock walks the output folder and produces an archive **inside it** (right alongside the YYYY-MM-DD/ subfolders, so Finder shows the artifact in the same place you backed up to):
 
-1. **Compress** alone → `<output>.zip` next to your backup folder.
-2. **Compress + Password-protect** → `<output>.zip.aes`. The plain zip is created first, then encrypted with AES-256-GCM and the intermediate zip is removed. You're left with a single encrypted file.
+1. **Bundle into .zip** alone → `<output>/<name>.zip`. The .zip uses `Store` mode (no recompression) — your HEIC, JPEG, and H.264 files are already compressed, and Deflate-ing them gains <1% while burning tens of CPU-minutes on a real-world camera roll.
+2. **Bundle into .zip + Password-protect** → `<output>/<name>.zip.aes`. The plain zip is produced first, then streamed through AES-256-GCM in 1 MiB chunks (so a 50 GB archive doesn't try to live in RAM), and the intermediate zip is removed. You're left with a single encrypted file.
 
-The done banner shows the artifact path. A toast also fires with the full path so you can find it after switching tabs.
+The done banner shows the artifact path with a **Reveal archive** button that opens Finder with the file selected. A toast also fires with the full path so you can find it after switching tabs.
 
 ## Encryption details
 
@@ -23,18 +23,22 @@ For users who want to know exactly what's happening to their bytes:
 
 - **Cipher:** AES-256 in GCM mode (authenticated encryption — both confidentiality AND tamper detection).
 - **Key derivation:** PBKDF2 with HMAC-SHA256, 200,000 iterations, 16-byte random salt, 32-byte output key.
-- **Nonce:** 12 random bytes per archive (never reused).
-- **Container format** (binary):
+- **Streaming:** the archive is processed in 1 MiB chunks; each chunk is sealed with its own random 12-byte nonce + 16-byte auth tag. This is what lets DumpSock encrypt a 50 GB archive without trying to hold the whole thing in RAM.
+- **Container format DSAES2** (binary):
 
   ```
-  magic   "DSAES1\n"     7 bytes
-  salt    16 bytes       (random)
-  iters   uint32 BE      (currently 200,000)
-  nonce   12 bytes       (random, AES-GCM)
-  ct‖tag  bytes          (AES-GCM ciphertext; 16-byte auth tag at the tail)
+  magic       "DSAES2\n"     7 bytes
+  salt        16 bytes       (random)
+  iters       uint32 BE      (currently 200,000)
+  chunkSize   uint32 BE      (1 MiB = 1048576)
+  [chunks…]                  each chunk = nonce(12) || ct‖tag(<= chunkSize+16)
   ```
 
-This is a deliberately small, auditable format. If you lose DumpSock you can decrypt with `openssl` + a 30-line helper script — the format is documented above, no proprietary header bytes.
+  The reader iterates chunks until EOF. The final chunk may be shorter than the declared chunk size — no padding.
+
+This is a deliberately small, auditable format. If you lose DumpSock you can still decrypt — the format is documented above, no proprietary header bytes.
+
+> **Format version history:** Older builds (≤ 2026-05-18 morning) wrote `DSAES1`, a single-shot variant that fit fine for ~100 MB archives but couldn't handle GB-scale backups. Both formats are documented in-repo if you have legacy `.zip.aes` files to decrypt.
 
 ## Picking a good password
 

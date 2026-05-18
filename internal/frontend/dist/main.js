@@ -494,9 +494,9 @@
   // ── pull flow ────────────────────────────────────────────────────
 
   function readPullForm(deleteConfirmed) {
-    // Two surfaces feed delete-after: the original Settings checkbox
-    // and the Dashboard quick-action. Either one true is enough.
-    const wantsDelete = $("#delete-after").checked || $("#dash-delete-after").checked;
+    // Pull options all live in Settings now (2026-05-18 operator
+    // preference). Dashboard reads from there.
+    const wantsDelete = $("#delete-after").checked;
     const wantsCompress = $("#dash-compress").checked;
     const wantsEncrypt = $("#dash-encrypt").checked;
     return {
@@ -517,7 +517,7 @@
     };
   }
   async function startPull() {
-    const wantsDelete = $("#delete-after").checked || $("#dash-delete-after").checked;
+    const wantsDelete = $("#delete-after").checked;
     const wantsEncrypt = $("#dash-encrypt").checked;
     if (!state.device) { toast("Plug an iPhone in first."); return; }
     if (!(await ensureOutputDir())) return;
@@ -661,14 +661,16 @@
   }
   function fmtPhase(ev) {
     switch (ev.phase) {
-      case "indexing": return "Indexing existing files…";
-      case "walking":  return "Walking the device…";
-      case "planning": return "Planning…";
-      case "pulling":  return "Pulling files";
-      case "deleting": return "Deleting from device…";
-      case "done":     return "Done";
-      case "error":    return "Error";
-      default:         return ev.phase;
+      case "indexing":   return "Indexing existing files…";
+      case "walking":    return "Walking the device…";
+      case "planning":   return "Planning…";
+      case "pulling":    return "Pulling files";
+      case "deleting":   return "Deleting from device…";
+      case "packaging":  return "Bundling into .zip…";
+      case "encrypting": return "Encrypting archive…";
+      case "done":       return "Done";
+      case "error":      return "Error";
+      default:           return ev.phase;
     }
   }
   // Human-readable byte count. Matches the rest of the GUI's unit display.
@@ -785,10 +787,14 @@
       if (revealBtn) revealBtn.hidden = false;
       // Toast the artifact path explicitly — the done-banner can be
       // missed if the user has already switched tabs.
-      if (payload.encrypted_path) {
-        toast("Encrypted archive at: " + payload.encrypted_path, 8000);
-      } else if (payload.zip_path) {
-        toast("Archive at: " + payload.zip_path, 8000);
+      const archivePath = payload.encrypted_path || payload.zip_path || "";
+      if (archivePath) {
+        // Stash so the Reveal Archive button (below) knows what to open.
+        state.lastArchivePath = archivePath;
+        const btnRevealArchive = $("#btn-reveal-archive");
+        if (btnRevealArchive) btnRevealArchive.hidden = false;
+        toast((payload.encrypted_path ? "Encrypted archive at: " : "Archive at: ") + archivePath +
+              " — click 'Reveal archive' in the done banner to open in Finder.", 10000);
       }
     }
   }
@@ -1018,6 +1024,16 @@
     $("#btn-cancel").addEventListener("click", cancelPull);
     $("#btn-reveal").addEventListener("click", revealOutputDir);
     $("#btn-again").addEventListener("click", () => setTab("dashboard"));
+    // Reveal the .zip / .zip.aes archive in Finder (selected, not just
+    // its parent folder). Wired after the operator hit "where the heck
+    // do I find iphone.zip.aes" on 2026-05-18.
+    const btnRevealArchive = $("#btn-reveal-archive");
+    if (btnRevealArchive) btnRevealArchive.addEventListener("click", async () => {
+      const p = state.lastArchivePath;
+      if (!p) { toast("No archive produced for the latest backup."); return; }
+      try { await window.go.gui.App.RevealFileInFinder(p); }
+      catch (e) { toast("Could not reveal: " + (e.message || e)); }
+    });
 
     // Dashboard pull-options: Password-protect is meaningless without
     // a .zip to encrypt (the engine encrypts the produced archive, not

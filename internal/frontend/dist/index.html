@@ -197,22 +197,12 @@
               <button class="btn ghost small" id="btn-pick-output">Change…</button>
             </div>
 
-            <!-- Quick options moved out of Settings (2026-05-17) so the
-                 high-leverage actions are one click from the Dashboard. -->
-            <div class="pull-options">
-              <label class="check danger compact">
-                <input type="checkbox" id="dash-delete-after">
-                <span><b>Wring it dry</b> — delete each file from the phone after it's safely backed up</span>
-              </label>
-              <label class="check compact">
-                <input type="checkbox" id="dash-compress">
-                <span><b>Compress to .zip</b> — package the YYYY-MM-DD/ tree as one archive after backup</span>
-              </label>
-              <label class="check compact">
-                <input type="checkbox" id="dash-encrypt">
-                <span><b>Password-protect</b> — encrypt the .zip with AES-256 (you'll be asked for a password)</span>
-              </label>
-            </div>
+            <!-- Quick options moved BACK to Settings 2026-05-18 — operator
+                 preference for a clean dashboard. JS reads from the same
+                 IDs (#dash-delete-after / #dash-compress / #dash-encrypt)
+                 which now live in the Settings tab. Dashboard keeps just
+                 the device card + Back Up Now CTA. -->
+            <p class="cta-hint muted small">Bundling, encryption, and Wring-it-dry live under <a href="#" data-tab-target="settings">Settings</a>.</p>
 
             <button class="btn primary big block" id="btn-pull">
               <span class="btn-icon">
@@ -491,6 +481,7 @@
               </div>
               <div class="done-actions">
                 <button class="btn primary" id="btn-reveal">Open the folder</button>
+                <button class="btn ghost" id="btn-reveal-archive" hidden>Reveal archive</button>
                 <button class="btn ghost" id="btn-again">Dump again</button>
               </div>
             </div>
@@ -595,6 +586,24 @@
                 <span>
                   <b>Wring it dry — delete from device after backup</b>
                   <em>Removes each file from <code>/var/mobile/Media/DCIM/</code> on the iPhone once it's safely on disk. Bytes freed immediately. Leaves ghost entries in Photos.app you'll need to clean up (one-Touch-ID automation tracked at <a href="https://github.com/code-hartle-tech/dumpsock/issues/1" target="_blank">issue #1</a>).</em>
+                </span>
+              </label>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><h3>Archive after backup</h3></div>
+              <label class="check">
+                <input type="checkbox" id="dash-compress">
+                <span>
+                  <b>Bundle into .zip</b>
+                  <em>Packs the YYYY-MM-DD/ tree into one archive after the backup completes. No recompression — already-compressed media (HEIC, JPEG, H.264) is stored as-is, so this is disk-bound, not CPU-bound.</em>
+                </span>
+              </label>
+              <label class="check disabled">
+                <input type="checkbox" id="dash-encrypt" disabled>
+                <span>
+                  <b>Password-protect (AES-256-GCM)</b>
+                  <em>Wraps the .zip in DumpSock's DSAES2 container (PBKDF2-SHA256 200,000 iters, AES-256-GCM streamed in 1 MiB chunks). Takes longer but is way more secure — only DumpSock can decrypt the result. Requires Bundle to be ticked.</em>
                 </span>
               </label>
             </div>

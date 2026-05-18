@@ -17,26 +17,76 @@ import (
 
 	"golang.org/x/crypto/pbkdf2"
 
-	// hash for PBKDF2-SHA256 imports lazily via crypto/sha256.
-	_ "crypto/sha256"
+	_ "crypto/sha256" // PBKDF2-SHA256
 	"crypto/sha256"
 )
 
-// PackageZip walks outputRoot and writes a sibling .zip archive that
-// contains every file under it (skipping the .dumpsock-* sentinels so
-// the archive is a clean media tree). Returns the path of the produced
-// .zip. Honors ctx cancellation between files.
+// PackageProgress is fed to PackageZip's / EncryptFile's OnProgress
+// callback to drive a live progress bar in the GUI. BytesDone is the
+// cumulative count of plaintext bytes processed; BytesTotal is the
+// sum of all files in the walk (computed by a pre-pass before the
+// archive write begins, so the bar has a real denominator).
+type PackageProgress struct {
+	Phase     string // "packaging" or "encrypting"
+	BytesDone int64
+	BytesTotal int64
+	Current   string // file currently being added (packaging only)
+}
+
+// PackageZip walks outputRoot and writes a .zip archive **inside** it
+// that contains every other file under it (skipping the .dumpsock-*
+// sentinels and any older .zip/.zip.aes archives sitting alongside).
+// Returns the path of the produced .zip. Honors ctx cancellation
+// between files.
 //
-// Naming: outputRoot=/x/y/MyPhone → /x/y/MyPhone.zip. If that path is
-// already taken, we suffix with -1, -2, ... until we find a free name.
-func PackageZip(ctx context.Context, outputRoot string) (string, error) {
+// onProgress (nullable) is invoked periodically with the cumulative
+// byte count. The GUI uses this to render a live progress bar so the
+// operation doesn't feel like a hang on multi-GB backups.
+//
+// LOCATION: operator preference 2026-05-18 — the archive lands at
+// `<outputRoot>/<leaf>.zip` (inside the backup folder) rather than as
+// a sibling. Browsing outputRoot in Finder shows the archive right
+// next to the YYYY-MM-DD/ subfolders, instead of forcing the user to
+// step up a directory to find it.
+//
+// PERFORMANCE: every entry uses `zip.Store` (no recompression). DumpSock
+// backups are dominated by HEIC, JPEG, H.264, and HEVC content — all
+// already compressed. Running Deflate over them gains <1% size and
+// burns enormous CPU for tens of GB of media. Store turns the whole
+// step into disk-I/O-bound bytes-shoveling.
+//
+// Naming: outputRoot=/x/y/MyPhone → /x/y/MyPhone/MyPhone.zip. Conflicts
+// (e.g. an old archive from a previous run) get -1, -2, … suffix.
+func PackageZip(ctx context.Context, outputRoot string, onProgress func(PackageProgress)) (string, error) {
 	if outputRoot == "" {
 		return "", errors.New("PackageZip: empty outputRoot")
 	}
 	cleaned := filepath.Clean(outputRoot)
-	parent := filepath.Dir(cleaned)
 	leaf := filepath.Base(cleaned)
-	zipPath := freeName(filepath.Join(parent, leaf+".zip"))
+	zipPath := freeName(filepath.Join(cleaned, leaf+".zip"))
+
+	// Pre-walk: sum total bytes so the progress bar has a real
+	// denominator. Cheap (one Stat per file) compared to the actual
+	// copy step. Same skip rules as the main walk below.
+	var bytesTotal int64
+	_ = filepath.WalkDir(cleaned, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		name := d.Name()
+		if strings.HasPrefix(name, ".dumpsock") ||
+			strings.HasSuffix(name, ".zip") ||
+			strings.HasSuffix(name, ".zip.aes") {
+			return nil
+		}
+		if info, _ := d.Info(); info != nil {
+			bytesTotal += info.Size()
+		}
+		return nil
+	})
+	if onProgress != nil {
+		onProgress(PackageProgress{Phase: "packaging", BytesTotal: bytesTotal})
+	}
 
 	out, err := os.Create(zipPath)
 	if err != nil {
@@ -44,6 +94,8 @@ func PackageZip(ctx context.Context, outputRoot string) (string, error) {
 	}
 	defer out.Close()
 
+	var bytesDone int64
+	lastEmit := bytesDone
 	zw := zip.NewWriter(out)
 	walkErr := filepath.WalkDir(cleaned, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -60,10 +112,17 @@ func PackageZip(ctx context.Context, outputRoot string) (string, error) {
 			}
 			return nil
 		}
-		// Skip the zip itself if it happens to land under outputRoot
-		// (defensive — we already chose a sibling path).
-		if !d.IsDir() && filepath.Clean(p) == zipPath {
-			return nil
+		// Skip the zip we're currently writing AND any older archive
+		// files that happen to live in outputRoot (the .zip / .zip.aes
+		// from a prior run) so re-running a backup doesn't gobble its
+		// own predecessors into the new archive.
+		if !d.IsDir() {
+			cp := filepath.Clean(p)
+			if cp == zipPath ||
+				strings.HasSuffix(name, ".zip") ||
+				strings.HasSuffix(name, ".zip.aes") {
+				return nil
+			}
 		}
 		rel, _ := filepath.Rel(cleaned, p)
 		if rel == "." {
@@ -82,7 +141,11 @@ func PackageZip(ctx context.Context, outputRoot string) (string, error) {
 			return err
 		}
 		header.Name = rel
-		header.Method = zip.Deflate
+		// zip.Store = no compression. Already-compressed media (HEIC,
+		// JPEG, H.264) gains <1% from Deflate and costs CPU-hours on a
+		// real-world backup. Operator-reported "packaging takes
+		// FOREVER" on 2026-05-18 — fixed by switching to Store.
+		header.Method = zip.Store
 		w, err := zw.CreateHeader(header)
 		if err != nil {
 			return err
@@ -91,10 +154,45 @@ func PackageZip(ctx context.Context, outputRoot string) (string, error) {
 		if err != nil {
 			return err
 		}
-		_, copyErr := io.Copy(w, f)
+		// Stream copy with periodic progress emits (every ~16 MiB).
+		buf := make([]byte, 1<<20)
+		var copyErr error
+		for {
+			n, rErr := f.Read(buf)
+			if n > 0 {
+				if _, wErr := w.Write(buf[:n]); wErr != nil {
+					copyErr = wErr
+					break
+				}
+				bytesDone += int64(n)
+				if onProgress != nil && bytesDone-lastEmit >= 16<<20 {
+					onProgress(PackageProgress{
+						Phase:      "packaging",
+						BytesDone:  bytesDone,
+						BytesTotal: bytesTotal,
+						Current:    name,
+					})
+					lastEmit = bytesDone
+				}
+			}
+			if rErr == io.EOF {
+				break
+			}
+			if rErr != nil {
+				copyErr = rErr
+				break
+			}
+		}
 		_ = f.Close()
 		return copyErr
 	})
+	if onProgress != nil {
+		onProgress(PackageProgress{
+			Phase:      "packaging",
+			BytesDone:  bytesDone,
+			BytesTotal: bytesTotal,
+		})
+	}
 	closeErr := zw.Close()
 	if walkErr != nil {
 		return "", walkErr
@@ -105,34 +203,59 @@ func PackageZip(ctx context.Context, outputRoot string) (string, error) {
 	return zipPath, nil
 }
 
-// EncryptFile reads src, encrypts the bytes with AES-256-GCM where the
-// key is PBKDF2-SHA256(password, salt, 200000 iters, 32 bytes), and
-// writes the result to a sibling file with ".aes" appended.
+// Encryption container — DSAES2 (chunked, streaming).
 //
-// Container format (binary):
+// PERFORMANCE: the original DSAES1 format encrypted in one shot, which
+// required reading the entire archive into RAM (os.ReadFile) and one
+// monster AES-GCM Seal call. That's fine for a 100 MB archive; brutal
+// for a 50 GB photo library. DSAES2 streams the file in fixed-size
+// chunks, each chunk independently sealed with its own nonce + tag.
 //
-//	magic   "DSAES1\n"             7 bytes
-//	salt    16 random bytes
-//	iters   uint32 BE (PBKDF2 iterations)
-//	nonce   12 random bytes (AES-GCM)
-//	ct||tag = AES-GCM ciphertext (16-byte auth tag at the tail)
+// On-disk layout:
 //
-// Returns the path of the produced .aes file.
-func EncryptFile(src, password string) (string, error) {
+//	magic       "DSAES2\n"     7 bytes
+//	salt        16 bytes       random per file
+//	iters       uint32 BE      PBKDF2-SHA256 iterations (currently 200,000)
+//	chunkSize   uint32 BE      bytes of plaintext per chunk (we use 1 MiB)
+//	[ chunks... ]              each chunk = nonce(12) || ct(<=chunkSize+16-tag)
+//
+// The final chunk may have a shorter plaintext (no padding). Reader
+// concatenates the decrypted plaintexts to reconstruct the archive.
+const (
+	dsaes2Magic     = "DSAES2\n"
+	dsaes2Iters     = 200_000
+	dsaes2ChunkSize = 1 << 20 // 1 MiB
+)
+
+// EncryptFile streams src through PBKDF2-derived AES-256-GCM into a
+// sibling file with ".aes" appended. Returns the path of the produced
+// .aes file.
+//
+// onProgress (nullable) reports cumulative-plaintext-bytes-processed,
+// emitted after each chunk seal.
+func EncryptFile(src, password string, onProgress func(PackageProgress)) (string, error) {
 	if password == "" {
 		return "", errors.New("EncryptFile: empty password")
 	}
-	plaintext, err := os.ReadFile(src)
+	in, err := os.Open(src)
 	if err != nil {
-		return "", fmt.Errorf("read src: %w", err)
+		return "", fmt.Errorf("open src: %w", err)
+	}
+	defer in.Close()
+	stat, _ := in.Stat()
+	bytesTotal := int64(0)
+	if stat != nil {
+		bytesTotal = stat.Size()
+	}
+	if onProgress != nil {
+		onProgress(PackageProgress{Phase: "encrypting", BytesTotal: bytesTotal})
 	}
 
-	const iters = 200_000
 	salt := make([]byte, 16)
 	if _, err := rand.Read(salt); err != nil {
 		return "", fmt.Errorf("salt: %w", err)
 	}
-	key := pbkdf2.Key([]byte(password), salt, iters, 32, sha256.New)
+	key := pbkdf2.Key([]byte(password), salt, dsaes2Iters, 32, sha256.New)
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -142,11 +265,6 @@ func EncryptFile(src, password string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("gcm: %w", err)
 	}
-	nonce := make([]byte, aead.NonceSize())
-	if _, err := rand.Read(nonce); err != nil {
-		return "", fmt.Errorf("nonce: %w", err)
-	}
-	ciphertext := aead.Seal(nil, nonce, plaintext, nil)
 
 	dst := src + ".aes"
 	out, err := os.Create(dst)
@@ -155,29 +273,62 @@ func EncryptFile(src, password string) (string, error) {
 	}
 	defer out.Close()
 
-	if _, err := out.Write([]byte("DSAES1\n")); err != nil {
+	// Header.
+	if _, err := out.Write([]byte(dsaes2Magic)); err != nil {
 		return "", err
 	}
 	if _, err := out.Write(salt); err != nil {
 		return "", err
 	}
-	itersBuf := make([]byte, 4)
-	binary.BigEndian.PutUint32(itersBuf, iters)
-	if _, err := out.Write(itersBuf); err != nil {
+	hdrBuf := make([]byte, 8)
+	binary.BigEndian.PutUint32(hdrBuf[0:4], uint32(dsaes2Iters))
+	binary.BigEndian.PutUint32(hdrBuf[4:8], uint32(dsaes2ChunkSize))
+	if _, err := out.Write(hdrBuf); err != nil {
 		return "", err
 	}
-	if _, err := out.Write(nonce); err != nil {
-		return "", err
-	}
-	if _, err := out.Write(ciphertext); err != nil {
-		return "", err
+
+	// Stream chunks.
+	plain := make([]byte, dsaes2ChunkSize)
+	nonce := make([]byte, aead.NonceSize())
+	var bytesDone int64
+	for {
+		n, readErr := io.ReadFull(in, plain)
+		// io.ReadFull returns ErrUnexpectedEOF when it gets a partial
+		// final read — that's the last chunk and is fine.
+		if readErr != nil && readErr != io.EOF && readErr != io.ErrUnexpectedEOF {
+			return "", fmt.Errorf("read src: %w", readErr)
+		}
+		if n == 0 {
+			break
+		}
+		if _, err := rand.Read(nonce); err != nil {
+			return "", fmt.Errorf("nonce: %w", err)
+		}
+		ct := aead.Seal(nil, nonce, plain[:n], nil)
+		if _, err := out.Write(nonce); err != nil {
+			return "", err
+		}
+		if _, err := out.Write(ct); err != nil {
+			return "", err
+		}
+		bytesDone += int64(n)
+		if onProgress != nil {
+			onProgress(PackageProgress{
+				Phase:      "encrypting",
+				BytesDone:  bytesDone,
+				BytesTotal: bytesTotal,
+			})
+		}
+		if readErr == io.EOF || readErr == io.ErrUnexpectedEOF {
+			break
+		}
 	}
 	return dst, nil
 }
 
 // freeName returns base if base doesn't exist, otherwise base with a
 // -1, -2, ... suffix inserted before the extension to find an unused
-// filename. Bounded at 1000 attempts (then it just appends -N+1 anyway).
+// filename. Bounded at 1000 attempts.
 func freeName(base string) string {
 	if _, err := os.Stat(base); err != nil {
 		return base

@@ -717,22 +717,29 @@ func (a *App) StartBackup(req BackupRequest) (string, error) {
 			payload["error"] = err.Error()
 		}
 
-		// Post-backup packaging. Compress=true → produce <outputRoot>.zip;
-		// Password non-empty → additionally encrypt to <outputRoot>.zip.aes
-		// and delete the intermediate plain zip. Skipped on error/dryrun
-		// since those don't write a complete tree.
+		// Post-backup packaging. Compress=true → produce
+		// <outputRoot>/<leaf>.zip; Password non-empty → additionally
+		// encrypt to <leaf>.zip.aes and delete the intermediate plain
+		// zip. Skipped on error/dryrun since those don't write a
+		// complete tree. Progress is forwarded via backup:progress
+		// events so the GUI's progress bar stays live during packaging
+		// (a multi-GB backup otherwise looks like a freeze).
 		if err == nil && !req.DryRun && (req.Compress || req.Password != "") {
-			wruntime.EventsEmit(a.ctx, "backup:progress",
-				backup.ProgressEvent{Phase: "packaging", Message: "compressing"})
-			zipPath, pErr := backup.PackageZip(ctx, opts.OutputRoot)
+			packProgress := func(pp backup.PackageProgress) {
+				wruntime.EventsEmit(a.ctx, "backup:progress", backup.ProgressEvent{
+					Phase:       pp.Phase,
+					Current:     pp.Current,
+					BytesTotal:  pp.BytesTotal,
+					BytesPulled: pp.BytesDone,
+				})
+			}
+			zipPath, pErr := backup.PackageZip(ctx, opts.OutputRoot, packProgress)
 			if pErr != nil {
 				payload["package_error"] = pErr.Error()
 			} else {
 				payload["zip_path"] = zipPath
 				if req.Password != "" {
-					wruntime.EventsEmit(a.ctx, "backup:progress",
-						backup.ProgressEvent{Phase: "packaging", Message: "encrypting"})
-					encPath, eErr := backup.EncryptFile(zipPath, req.Password)
+					encPath, eErr := backup.EncryptFile(zipPath, req.Password, packProgress)
 					if eErr != nil {
 						payload["package_error"] = eErr.Error()
 					} else {
@@ -890,6 +897,40 @@ func (a *App) RevealInFinder(path string) error {
 		cmd = exec.Command("explorer", path)
 	default:
 		return fmt.Errorf("RevealInFinder not implemented for %s", runtime.GOOS)
+	}
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("opening %s: %w", path, err)
+	}
+	return nil
+}
+
+// RevealFileInFinder opens the parent directory AND selects the file
+// itself. Used by the "Reveal archive" button on the done banner so
+// the user lands directly on the .zip/.zip.aes (which sits as a
+// sibling to the backup folder, not inside it — a confusing surprise
+// the operator hit on 2026-05-18).
+//
+// macOS: `open -R <file>` selects it in Finder. Linux/Windows: open
+// the parent directory (best effort; native shells don't have a
+// universal "select this file" verb).
+func (a *App) RevealFileInFinder(path string) error {
+	if path == "" {
+		return errors.New("empty path")
+	}
+	if _, err := os.Stat(path); err != nil {
+		return fmt.Errorf("path not accessible: %w", err)
+	}
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", "-R", path)
+	case "linux":
+		cmd = exec.Command("xdg-open", filepath.Dir(path))
+	case "windows":
+		// /select arg selects the file in Explorer.
+		cmd = exec.Command("explorer", "/select,", path)
+	default:
+		return fmt.Errorf("RevealFileInFinder not implemented for %s", runtime.GOOS)
 	}
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("opening %s: %w", path, err)
