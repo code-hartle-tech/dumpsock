@@ -632,6 +632,9 @@
       // Reveal failure isn't fatal — the file IS produced.
       console.warn("Reveal failed:", e);
     }
+    // Refresh the Saved-backups list in case the new .zip is sitting
+    // inside a tracked backup folder.
+    refreshBackupsList();
   }
 
   // Single-password modal — same #password-modal sheet, switched into
@@ -924,6 +927,12 @@
         bytes: estimateJobBytes(r),
       });
       refreshStorage();
+      // Re-pull the Saved-backups list — a completed run just appended
+      // its outputRoot to KnownBackups on the Go side, AND the in-folder
+      // .dumpsock.json metadata is fresh, so the list now reflects the
+      // current state. Operator-requested 2026-05-18 ("after operations
+      // saved backups card should refresh").
+      refreshBackupsList();
       // Update Last Backup card on the dashboard
       $("#last-backup-time").textContent = "Just now";
       $("#last-backup-status").hidden = false;
@@ -1244,6 +1253,9 @@
       } catch (e) {
         toast("Decrypt & unarchive failed: " + (e && e.message || e), 10000);
       }
+      // Reflect the new extracted folder (and updated metadata if it
+      // sits under outputRoot) in the Saved-backups list.
+      refreshBackupsList();
     }
     const btnDU = $("#btn-decrypt-unarchive");
     if (btnDU) btnDU.addEventListener("click", () => decryptAndUnarchiveFlow(state.lastArchivePath));
@@ -1323,10 +1335,12 @@
     const btnRefreshBackups = $("#btn-refresh-backups");
     if (btnRefreshBackups) btnRefreshBackups.addEventListener("click", refreshBackupsList);
 
-    // Decrypt-an-archive flow: pick file → prompt password → decrypt
-    // → toast the produced path with a Reveal-in-Finder follow-up.
-    const btnDecryptArchive = $("#btn-decrypt-archive");
-    if (btnDecryptArchive) btnDecryptArchive.addEventListener("click", () => decryptFlow(""));
+    // The standalone "Decrypt an archive…" button is gone (operator
+    // call 2026-05-18 — "the lonely decrypt button must go"). The
+    // per-row buttons in Saved-backups, the Done-banner button, and
+    // the Last-Backup-card button cover every entry point. The
+    // decryptFlow() function stays because the per-row Decrypt
+    // (.zip output) button still uses it.
 
     // Storage breakdown click-through → Browse tab (item 9). Each legend
     // row carries a data-browse-to AFC path; clicking it navigates the
