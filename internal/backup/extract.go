@@ -21,19 +21,27 @@ import (
 // nextFreeName-style logic.
 //
 // Returns the count of files extracted on success.
-func ExtractZip(ctx context.Context, srcZip, dstDir, password string, onProgress func(PackageProgress)) (int, error) {
+func ExtractZip(ctx context.Context, srcZip, dstDir, password string, onProgress func(PackageProgress)) (count int, err error) {
 	if srcZip == "" {
 		return 0, errors.New("ExtractZip: empty srcZip")
 	}
 	if dstDir == "" {
 		return 0, errors.New("ExtractZip: empty dstDir")
 	}
-	if _, err := os.Stat(dstDir); err == nil {
+	if _, statErr := os.Stat(dstDir); statErr == nil {
 		return 0, fmt.Errorf("destination already exists: %s", dstDir)
 	}
-	if err := os.MkdirAll(dstDir, 0o755); err != nil {
+	if err = os.MkdirAll(dstDir, 0o755); err != nil {
 		return 0, fmt.Errorf("mkdir dst: %w", err)
 	}
+	// Rollback the partially-extracted folder on any failure (cancel,
+	// permission error, corrupt zip entry, etc.). Operator preference
+	// 2026-05-18 — "cancel should rollback whatever it is."
+	defer func() {
+		if err != nil {
+			_ = os.RemoveAll(dstDir)
+		}
+	}()
 
 	r, err := zip.OpenReader(srcZip)
 	if err != nil {

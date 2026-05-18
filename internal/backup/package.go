@@ -310,11 +310,12 @@ const (
 
 // EncryptFile streams src through PBKDF2-derived AES-256-GCM into a
 // sibling file with ".aes" appended. Returns the path of the produced
-// .aes file.
+// .aes file. Honors ctx: a cancellation between chunks aborts the
+// write AND removes the partial .aes from disk.
 //
 // onProgress (nullable) reports cumulative-plaintext-bytes-processed,
 // emitted after each chunk seal.
-func EncryptFile(src, password string, onProgress func(PackageProgress)) (string, error) {
+func EncryptFile(ctx context.Context, src, password string, onProgress func(PackageProgress)) (dst string, err error) {
 	if password == "" {
 		return "", errors.New("EncryptFile: empty password")
 	}
@@ -347,12 +348,20 @@ func EncryptFile(src, password string, onProgress func(PackageProgress)) (string
 		return "", fmt.Errorf("gcm: %w", err)
 	}
 
-	dst := src + ".aes"
+	dst = src + ".aes"
 	out, err := os.Create(dst)
 	if err != nil {
 		return "", fmt.Errorf("create dst: %w", err)
 	}
 	defer out.Close()
+	// Roll back the partial .aes on any failure (cancel, IO error,
+	// short read, etc.) — operator preference 2026-05-18 ("cancel
+	// should rollback/remove whatever it is").
+	defer func() {
+		if err != nil {
+			_ = os.Remove(dst)
+		}
+	}()
 
 	// Header.
 	if _, err := out.Write([]byte(dsaes2Magic)); err != nil {
@@ -373,6 +382,11 @@ func EncryptFile(src, password string, onProgress func(PackageProgress)) (string
 	nonce := make([]byte, aead.NonceSize())
 	var bytesDone int64
 	for {
+		if ctx != nil {
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return "", ctxErr
+			}
+		}
 		n, readErr := io.ReadFull(in, plain)
 		// io.ReadFull returns ErrUnexpectedEOF when it gets a partial
 		// final read — that's the last chunk and is fine.

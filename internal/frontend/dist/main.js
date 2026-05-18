@@ -243,6 +243,26 @@
         ? `<span class="pill info"><span class="dot"></span>${aesArchive ? "Encrypted archive present" : "Archive present"}</span>` : "";
       const row = document.createElement("div");
       row.className = "backup-row" + (e.reachable ? "" : " unreachable");
+      // Render up to 5 recent runs from the .dumpsock.json history
+      // so the card shows each individual backup run inside the
+      // folder, not just the rolled-up totals. Operator request
+      // 2026-05-18 — "saved backup cards should show all backups in
+      // the backup folder."
+      const history = Array.isArray(m.history) ? m.history.slice(-5).reverse() : [];
+      const historyHTML = history.length ? `
+        <div class="backup-row-history muted small">
+          <div class="backup-row-history-head">${history.length} recent run${history.length === 1 ? "" : "s"}:</div>
+          ${history.map((r) => {
+            const when = r.at ? new Date(r.at).toLocaleString() : "—";
+            const pulled = r.pulled || 0;
+            const skipped = (r.pre_skipped || 0) + (r.post_skipped || 0);
+            const errs = r.errors || 0;
+            const segs = [`${pulled} pulled`];
+            if (skipped) segs.push(`${skipped} skipped`);
+            if (errs) segs.push(`${errs} errors`);
+            return `<div class="backup-row-history-row">· ${when} — ${segs.join(" · ")}</div>`;
+          }).join("")}
+        </div>` : "";
       row.innerHTML = `
         <div class="backup-row-main">
           <div class="backup-row-title">${escapeHTML(m.device_name || "iPhone")} ${interruptedBadge} ${missingBadge} ${archiveBadge}</div>
@@ -250,6 +270,7 @@
           <div class="backup-row-meta muted small">
             ${files} files · ${bytes} · last updated ${updatedLabel}
           </div>
+          ${historyHTML}
         </div>
         <div class="backup-row-actions">
           <button class="btn ghost small" data-act="reveal" ${e.reachable ? "" : "disabled"}>Reveal</button>
@@ -286,7 +307,7 @@
       });
       row.querySelector("[data-act=move]").addEventListener("click", async () => {
         try {
-          const picked = await window.go.gui.App.PickOutputFolder("Move backup to…");
+          const picked = await window.go.gui.App.PickDirectory("Move backup to…");
           if (!picked) return;
           // Append the backup's leaf folder name so we land at <picked>/<name>.
           const leaf = e.path.split("/").filter(Boolean).pop() || "DumpSock-backup";
@@ -340,7 +361,75 @@
       $("#platform-about").textContent = state.appInfo.platform || "—";
     } catch {}
     renderJobHistory();
+    rehydrateSettings();   // restore checkbox/radio/date state from localStorage
+    wireSettingsPersist(); // save on every change going forward
     await rescan();
+  }
+
+  // ── Settings persistence ─────────────────────────────────────────
+  // Operator preference 2026-05-18: "app settings should persist."
+  // We snapshot every form control in the Settings tab plus the
+  // Dashboard's password options into a single localStorage entry.
+  // No backend change — JS-only round-trip per ProgressEvent rule
+  // (config.json on disk is for paths + KnownBackups; in-flight UI
+  // state belongs in localStorage).
+  const SETTINGS_KEY = "dumpsock.settings.v1";
+  const SETTINGS_CHECK_IDS = [
+    "no-mtime", "no-notify", "dry-run", "delete-after",
+    "dash-compress", "dash-encrypt", "dash-delete-raw",
+    "use-biometric",
+  ];
+  const SETTINGS_DATE_IDS = ["since", "until"];
+  const SETTINGS_RADIO_NAMES = ["password-mode", "archive-scope"];
+
+  function rehydrateSettings() {
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}"); }
+    catch { saved = {}; }
+    for (const id of SETTINGS_CHECK_IDS) {
+      const el = document.getElementById(id);
+      if (el && typeof saved[id] === "boolean") el.checked = saved[id];
+    }
+    for (const id of SETTINGS_DATE_IDS) {
+      const el = document.getElementById(id);
+      if (el && typeof saved[id] === "string") el.value = saved[id];
+    }
+    for (const name of SETTINGS_RADIO_NAMES) {
+      const val = saved[name];
+      if (typeof val === "string") {
+        const r = document.querySelector(`input[name="${name}"][value="${val}"]`);
+        if (r) r.checked = true;
+      }
+    }
+  }
+
+  function snapshotSettings() {
+    const out = {};
+    for (const id of SETTINGS_CHECK_IDS) {
+      const el = document.getElementById(id);
+      if (el) out[id] = !!el.checked;
+    }
+    for (const id of SETTINGS_DATE_IDS) {
+      const el = document.getElementById(id);
+      if (el) out[id] = el.value || "";
+    }
+    for (const name of SETTINGS_RADIO_NAMES) {
+      const r = document.querySelector(`input[name="${name}"]:checked`);
+      if (r) out[name] = r.value;
+    }
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(out)); } catch {}
+  }
+
+  function wireSettingsPersist() {
+    const all = [];
+    for (const id of [...SETTINGS_CHECK_IDS, ...SETTINGS_DATE_IDS]) {
+      const el = document.getElementById(id);
+      if (el) all.push(el);
+    }
+    for (const name of SETTINGS_RADIO_NAMES) {
+      document.querySelectorAll(`input[name="${name}"]`).forEach((r) => all.push(r));
+    }
+    all.forEach((el) => el.addEventListener("change", snapshotSettings));
   }
 
   // ── device ───────────────────────────────────────────────────────
@@ -551,6 +640,7 @@
       password: wantsEncrypt ? (state.backupPassword || "") : "",
       password_mode: passwordMode,
       archive_scope: (document.querySelector('input[name="archive-scope"]:checked')?.value) || "all",
+      delete_raw_after_archive: !!($("#dash-delete-raw") && $("#dash-delete-raw").checked) && (wantsCompress || wantsEncrypt),
     };
   }
   async function startPull() {
@@ -802,7 +892,15 @@
     }
   }
   function cancelPull() {
-    window.go.gui.App.CancelBackup();
+    // CancelCurrentOp cancels whatever's in flight — pull, packaging,
+    // encrypting, decrypting, extracting. Each long op registers its
+    // cancel function on the Go side, and the backend's deferred
+    // cleanup rolls back partial outputs (half-zip, half-aes, half-
+    // extracted folder). Operator preference 2026-05-18 ("cancel in
+    // the middle of an operation should rollback/remove/cancel
+    // whatever it is").
+    try { window.go.gui.App.CancelCurrentOp(); }
+    catch { /* legacy binding fallback */ try { window.go.gui.App.CancelBackup(); } catch {} }
     $("#progress-phase").textContent = "Cancelling…";
   }
   function pct(done, total) {

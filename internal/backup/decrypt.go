@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/sha256"
@@ -28,7 +29,7 @@ import (
 // BytesTotal=size of src (a slight over-estimate since each chunk
 // includes a 12-byte nonce + 16-byte tag on top of plaintext — close
 // enough for a progress bar).
-func DecryptFile(src, dst, password string, onProgress func(PackageProgress)) (string, error) {
+func DecryptFile(ctx context.Context, src, dst, password string, onProgress func(PackageProgress)) (outPath string, err error) {
 	if password == "" {
 		return "", errors.New("DecryptFile: empty password")
 	}
@@ -52,14 +53,24 @@ func DecryptFile(src, dst, password string, onProgress func(PackageProgress)) (s
 		onProgress(PackageProgress{Phase: "decrypting", BytesTotal: srcSize})
 	}
 
+	// Cleanup-on-failure: if we return any error (including ctx
+	// cancellation) the partially-written plaintext file is removed.
+	// Operator preference 2026-05-18.
+	defer func() {
+		if err != nil {
+			_ = os.Remove(dst)
+		}
+	}()
+
 	switch string(magic) {
 	case dsaes2Magic:
-		return decryptDSAES2(in, dst, password, srcSize, onProgress)
+		outPath, err = decryptDSAES2(ctx, in, dst, password, srcSize, onProgress)
 	case "DSAES1\n":
-		return decryptDSAES1(in, dst, password, srcSize, onProgress)
+		outPath, err = decryptDSAES1(in, dst, password, srcSize, onProgress)
 	default:
 		return "", fmt.Errorf("not a DumpSock encrypted archive (magic = %q)", magic)
 	}
+	return
 }
 
 // decryptDSAES2 is the streaming, chunked format. Layout (after the
@@ -68,7 +79,7 @@ func DecryptFile(src, dst, password string, onProgress func(PackageProgress)) (s
 //	salt(16) | iters(uint32 BE) | chunkSize(uint32 BE) | [chunks...]
 //
 // each chunk = nonce(12) || ciphertext+tag(≤chunkSize+16).
-func decryptDSAES2(in *os.File, dst, password string, srcSize int64, onProgress func(PackageProgress)) (string, error) {
+func decryptDSAES2(ctx context.Context, in *os.File, dst, password string, srcSize int64, onProgress func(PackageProgress)) (string, error) {
 	salt := make([]byte, 16)
 	if _, err := io.ReadFull(in, salt); err != nil {
 		return "", fmt.Errorf("read salt: %w", err)
@@ -107,6 +118,11 @@ func decryptDSAES2(in *os.File, dst, password string, srcSize int64, onProgress 
 	nonce := make([]byte, nonceSize)
 	var bytesDone int64
 	for chunkNum := 0; ; chunkNum++ {
+		if ctx != nil {
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return "", ctxErr
+			}
+		}
 		_, err := io.ReadFull(in, nonce)
 		if err == io.EOF {
 			break

@@ -38,6 +38,12 @@ type App struct {
 	job    *jobHandle
 	jobSeq int
 	cfg    Config
+	// opCancel cancels whatever long-running operation is currently in
+	// flight that isn't routed through a.job (decrypt, decrypt-and-
+	// unarchive, etc.). Set by the binding before it kicks off the
+	// op, cleared in defer. CancelCurrentOp uses this so the GUI's
+	// single Cancel button works for every long path, not just pulls.
+	opCancel context.CancelFunc
 }
 
 type jobHandle struct {
@@ -112,6 +118,14 @@ type BackupRequest struct {
 	// everything under outputRoot (today's default; includes past
 	// runs). "current" → only files res.PulledPaths from this run.
 	ArchiveScope string `json:"archive_scope,omitempty"`
+
+	// DeleteRawAfterArchive, when true AND archiving succeeded, walks
+	// outputRoot and removes everything that ISN'T the produced
+	// archive (.zip / .zip.aes) or the metadata sentinels
+	// (.dumpsock.json / .dumpsock-session.json). The YYYY-MM-DD/
+	// subfolders go away; the metadata + run history stays. Useful
+	// when the user wants only the encrypted package on disk.
+	DeleteRawAfterArchive bool `json:"delete_raw_after_archive,omitempty"`
 }
 
 // AppInfo carries static metadata to the UI for headers / about dialog.
@@ -745,7 +759,10 @@ func (a *App) DecryptArchive(srcPath, outPath, password string) (string, error) 
 			Current:     pp.Current,
 		})
 	}
-	return backup.DecryptFile(srcPath, outPath, password, onProgress)
+	ctx, cancel := context.WithCancel(a.ctx)
+	a.mu.Lock(); a.opCancel = cancel; a.mu.Unlock()
+	defer func() { a.mu.Lock(); a.opCancel = nil; a.mu.Unlock(); cancel() }()
+	return backup.DecryptFile(ctx, srcPath, outPath, password, onProgress)
 }
 
 // DecryptAndExtractArchive does the full "decrypt → unzip → drop the
@@ -782,10 +799,15 @@ func (a *App) DecryptAndExtractArchive(srcPath, password string) (string, error)
 			Current:     pp.Current,
 		})
 	}
-	if _, err := backup.DecryptFile(srcPath, intermediateZip, password, progress); err != nil {
+	ctx, cancel := context.WithCancel(a.ctx)
+	a.mu.Lock(); a.opCancel = cancel; a.mu.Unlock()
+	defer func() { a.mu.Lock(); a.opCancel = nil; a.mu.Unlock(); cancel() }()
+	if _, err := backup.DecryptFile(ctx, srcPath, intermediateZip, password, progress); err != nil {
 		return "", fmt.Errorf("decrypt: %w", err)
 	}
-	// 2) Extract to a sibling folder.
+	// 2) Extract to a sibling folder. If the extract fails or is
+	// cancelled, ExtractZip's own deferred cleanup removes the
+	// partial directory so the operator doesn't have to.
 	dstDir := strings.TrimSuffix(intermediateZip, ".zip")
 	if dstDir == intermediateZip {
 		dstDir = intermediateZip + ".extracted"
@@ -793,7 +815,13 @@ func (a *App) DecryptAndExtractArchive(srcPath, password string) (string, error)
 	if _, err := os.Stat(dstDir); err == nil {
 		dstDir = nextFreeName(dstDir)
 	}
-	if _, err := backup.ExtractZip(a.ctx, intermediateZip, dstDir, "", progress); err != nil {
+	// Pass the SAME password to ExtractZip — Maximum mode's inner zip
+	// has per-file AES-256 encryption (Standard layer); the DSAES2
+	// wrapper sits outside that. Both layers use the same password.
+	// Operator-reported failure 2026-05-18 where the extract step
+	// errored with "wrong password" even though the password was
+	// correct — bug was passing "" here.
+	if _, err := backup.ExtractZip(ctx, intermediateZip, dstDir, password, progress); err != nil {
 		// Leave the .zip in place so the operator can retry without
 		// re-decrypting the (slow) outer container.
 		return "", fmt.Errorf("extract: %w (decrypted zip kept at %s)", err, intermediateZip)
@@ -801,6 +829,52 @@ func (a *App) DecryptAndExtractArchive(srcPath, password string) (string, error)
 	// 3) Drop the intermediate zip — extraction succeeded.
 	_ = os.Remove(intermediateZip)
 	return dstDir, nil
+}
+
+// removeRawTree walks outputRoot one level deep and deletes every
+// entry that ISN'T a known DumpSock artifact (the .zip / .zip.aes
+// archive or the .dumpsock.* metadata sentinels). YYYY-MM-DD/
+// subfolders and any stray files get removed recursively. The
+// .dumpsock.json history stays so Saved Backups still surfaces the
+// folder with its run record. Defensive: bails on empty outputRoot
+// or any unstatable path.
+func removeRawTree(outputRoot string) error {
+	if outputRoot == "" || outputRoot == "/" {
+		return errors.New("removeRawTree: refusing empty or root path")
+	}
+	entries, err := os.ReadDir(outputRoot)
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		name := e.Name()
+		// Preserve archives + metadata + sentinels. Everything else
+		// (YYYY-MM-DD/ subfolders, the "0000:00:00 00:00:00" no-date
+		// bucket, stray files) goes.
+		if strings.HasPrefix(name, ".dumpsock") ||
+			strings.HasSuffix(name, ".zip") ||
+			strings.HasSuffix(name, ".zip.aes") {
+			continue
+		}
+		_ = os.RemoveAll(filepath.Join(outputRoot, name))
+	}
+	return nil
+}
+
+// CancelCurrentOp cancels whatever long-running operation is in flight:
+// pull (via the legacy a.job.cancel), decrypt, decrypt-and-unarchive,
+// extraction. Safe to call when nothing's running.
+func (a *App) CancelCurrentOp() {
+	a.mu.Lock()
+	op := a.opCancel
+	job := a.job
+	a.mu.Unlock()
+	if op != nil {
+		op()
+	}
+	if job != nil {
+		job.cancel()
+	}
 }
 
 // nextFreeName returns base if it doesn't exist, otherwise base with
@@ -1089,7 +1163,7 @@ func (a *App) StartBackup(req BackupRequest) (string, error) {
 					// of the password-encrypted zip; only DumpSock
 					// decrypts the result.
 					if mode == backup.PasswordMaximum {
-						encPath, eErr := backup.EncryptFile(zipPath, req.Password, packProgress)
+						encPath, eErr := backup.EncryptFile(ctx, zipPath, req.Password, packProgress)
 						if eErr != nil {
 							payload["package_error"] = eErr.Error()
 						} else {
@@ -1098,6 +1172,16 @@ func (a *App) StartBackup(req BackupRequest) (string, error) {
 						}
 					}
 				}
+			}
+
+			// Optional: remove the raw YYYY-MM-DD/ tree once archiving
+			// succeeded. Operator preference 2026-05-18 — useful when
+			// the user wants only the encrypted package on disk. The
+			// .dumpsock.json + RunRecord history stays so Saved Backups
+			// still shows what was archived. Only fires when packaging
+			// reported no error — never half-deletes.
+			if req.DeleteRawAfterArchive && payload["package_error"] == nil {
+				_ = removeRawTree(opts.OutputRoot)
 			}
 		}
 

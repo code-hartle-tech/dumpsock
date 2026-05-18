@@ -437,20 +437,13 @@
         <!-- ══════════════════════════ BACKUPS ══════════════════════════ -->
         <section class="tab" data-tab="backups" hidden>
           <h1 class="tab-title">Backups</h1>
-          <p class="tab-subtitle">Saved backups on this machine — move them around, reveal in Finder, or forget them</p>
+          <p class="tab-subtitle">Active job up top; saved backups below — move them around, reveal in Finder, or forget them</p>
 
-          <!-- List of known backups (populated by ListBackups). -->
-          <div class="card" id="backups-list-card">
-            <div class="card-head">
-              <h3>Saved backups</h3>
-              <button class="btn ghost small" id="btn-refresh-backups">Refresh</button>
-            </div>
-            <div id="backups-list" class="backups-list">
-              <div class="muted small" id="backups-list-empty">No saved backups yet. Run a backup from the Dashboard to record one here.</div>
-            </div>
-          </div>
-
-          <h2 class="tab-subtitle" style="margin-top:24px;">Active job</h2>
+          <!-- Active job first (operator preference 2026-05-18): the
+               in-progress run is the highest-information thing on the
+               screen when something's running, and a low-noise empty
+               state when nothing is. Saved Backups follows. -->
+          <h2 class="tab-subtitle" style="margin-top:0;">Active job</h2>
           <div class="card" id="run-card">
             <div class="progress-head">
               <h2 id="progress-phase">No backup running.</h2>
@@ -488,6 +481,21 @@
                 <button class="btn ghost" id="btn-decrypt-unarchive" hidden>Decrypt &amp; unarchive</button>
                 <button class="btn ghost" id="btn-again">Dump again</button>
               </div>
+            </div>
+          </div>
+
+          <!-- Saved backups card now follows Active job (operator
+               preference 2026-05-18). The Refresh button kicks
+               discoverBackups + ListBackups; the list also self-
+               refreshes after every successful op. -->
+          <h2 class="tab-subtitle" style="margin-top:24px;">Saved backups</h2>
+          <div class="card" id="backups-list-card">
+            <div class="card-head">
+              <h3>On this machine</h3>
+              <button class="btn ghost small" id="btn-refresh-backups">Refresh</button>
+            </div>
+            <div id="backups-list" class="backups-list">
+              <div class="muted small" id="backups-list-empty">No saved backups yet. Run a backup from the Dashboard to record one here.</div>
             </div>
           </div>
         </section>
@@ -608,6 +616,13 @@
                 <span>
                   <b>Password-protect</b>
                   <em>Requires Bundle. You'll be asked for a password before the backup starts. Pick the protection level below.</em>
+                </span>
+              </label>
+              <label class="check compact danger">
+                <input type="checkbox" id="dash-delete-raw">
+                <span>
+                  <b>Delete the raw YYYY-MM-DD/ tree after archiving</b>
+                  <em>Removes the unarchived files from the backup folder once the .zip (and .zip.aes, if encrypted) has been written. The .dumpsock.json history stays so Saved Backups still shows what was archived. Useful for keeping just the encrypted package.</em>
                 </span>
               </label>
               <div class="password-mode-row" id="archive-scope-row">
