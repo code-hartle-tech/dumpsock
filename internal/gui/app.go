@@ -591,11 +591,16 @@ func (a *App) BrowseApp(udid, bundleID, relPath string) ([]afc.Entry, error) {
 // user cancels. Used by the Backups tab's "Decrypt an archive…" button
 // so the entire flow stays inside the GUI (operator preference 2026-
 // 05-18: "everything stays in the UI, don't be lazy").
+//
+// Filter spec note: only single-pattern entries are used (no
+// semicolon-separated multi-ext) because operator hit a force-close on
+// the previous build using `*.aes;*.zip.aes`; some Wails/macOS combos
+// crash on that syntax. A `.zip.aes` file matches `*.aes` anyway.
 func (a *App) PickArchiveToDecrypt() (string, error) {
 	return wruntime.OpenFileDialog(a.ctx, wruntime.OpenDialogOptions{
-		Title: "Pick a DumpSock-encrypted archive (.zip.aes)",
+		Title: "Pick a DumpSock-encrypted archive",
 		Filters: []wruntime.FileFilter{
-			{DisplayName: "DumpSock encrypted archive", Pattern: "*.aes;*.zip.aes"},
+			{DisplayName: "Encrypted archive (*.aes)", Pattern: "*.aes"},
 			{DisplayName: "All files", Pattern: "*"},
 		},
 	})

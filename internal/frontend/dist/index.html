@@ -682,16 +682,16 @@
     </div>
   </div>
 
-  <div class="modal-veil" id="password-modal" hidden>
+  <div class="modal-veil" id="password-modal" data-mode="encrypt" hidden>
     <div class="modal">
-      <h2>Password-protect this backup</h2>
-      <p>DumpSock will encrypt the .zip with AES-256-GCM. The key is
+      <h2 id="password-title">Password-protect this backup</h2>
+      <p id="password-subtitle">DumpSock will encrypt the .zip with AES-256-GCM. The key is
         derived from your password via PBKDF2-SHA256 (200,000 iterations).</p>
-      <p class="muted"><b>If you lose this password the backup is unreadable.</b> No reset, no recovery — that's the point.</p>
+      <p class="muted" id="password-warning"><b>If you lose this password the backup is unreadable.</b> No reset, no recovery — that's the point.</p>
       <label class="field-label" for="password-input">Password</label>
       <input type="password" id="password-input" class="text-input" autocomplete="new-password">
-      <label class="field-label" for="password-confirm">Confirm</label>
-      <input type="password" id="password-confirm" class="text-input" autocomplete="new-password">
+      <label class="field-label password-only-encrypt" for="password-confirm">Confirm</label>
+      <input type="password" id="password-confirm" class="text-input password-only-encrypt" autocomplete="new-password">
       <div class="password-error muted" id="password-error"></div>
       <div class="actions">
         <button class="btn ghost" id="btn-password-cancel">Cancel</button>

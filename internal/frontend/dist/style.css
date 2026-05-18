@@ -862,6 +862,11 @@ input[type="text"]:focus, input[type="date"]:focus {
   margin: 4px 0 4px;
 }
 .password-error { color: var(--danger); min-height: 18px; font-size: 12px; margin-bottom: 8px; }
+/* Decrypt mode hides the Confirm field — we're verifying an existing
+   password, not setting a new one. CSS-only state toggle is safer
+   than mutating .style.display from JS (which broke the modal). */
+#password-modal[data-mode="decrypt"] .password-only-encrypt { display: none; }
+#password-modal[data-mode="decrypt"] #password-warning { display: none; }
 
 /* Standard vs Maximum password-mode radio (Settings → Archive after backup) */
 .password-mode-row {

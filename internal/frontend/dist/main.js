@@ -569,37 +569,50 @@
     await launchBackup(false);
   }
 
-  // Decrypt flow: takes an optional preselected path. If srcPath is
-  // empty, opens the native file picker. Then prompts for a password
-  // (single-field; we're DECRYPTING, no confirm needed), calls the
-  // backend, and toasts the produced path with a Reveal-in-Finder
-  // follow-up button. End-to-end in the GUI — operator preference
-  // 2026-05-18 ("everything stays in the UI, don't be lazy").
+  // Decrypt flow: optional preselected srcPath; otherwise opens native
+  // file picker. Prompts for password (single-field; we're DECRYPTING,
+  // no confirm needed), calls the backend, toasts the produced path,
+  // reveals in Finder. Every native bridge call sits inside its own
+  // try/catch — Wails panics on the Go side will surface as a thrown
+  // error here rather than killing the app process (operator hit a
+  // force-close on the first iteration 2026-05-18).
   async function decryptFlow(srcPath) {
     let src = srcPath || "";
     if (!src) {
       try { src = await window.go.gui.App.PickArchiveToDecrypt(); }
-      catch (e) { toast("File picker failed: " + (e.message || e)); return; }
+      catch (e) { toast("File picker failed: " + (e && e.message || e)); return; }
       if (!src) return; // user cancelled
     }
-    const pw = await promptDecryptPassword(src);
+    let pw;
+    try { pw = await promptDecryptPassword(src); }
+    catch (e) { toast("Password prompt failed: " + (e && e.message || e)); return; }
     if (pw === null) return; // user cancelled
     toast("Decrypting " + src.split("/").pop() + "…", 60000);
+    let outPath = "";
     try {
-      const outPath = await window.go.gui.App.DecryptArchive(src, "", pw);
-      toast("Decrypted to " + outPath + " — click here to reveal.", 12000);
-      // Set the lastArchivePath state so the existing Reveal-archive
-      // button on the done banner can also surface this file.
-      state.lastArchivePath = outPath;
-      try { await window.go.gui.App.RevealFileInFinder(outPath); } catch {}
+      outPath = await window.go.gui.App.DecryptArchive(src, "", pw);
     } catch (e) {
-      toast("Decrypt failed: " + (e.message || e), 10000);
+      toast("Decrypt failed: " + (e && e.message || e), 10000);
+      return;
+    }
+    if (!outPath) {
+      toast("Decrypt produced no output (likely wrong password).", 8000);
+      return;
+    }
+    toast("Decrypted to " + outPath, 12000);
+    state.lastArchivePath = outPath;
+    try { await window.go.gui.App.RevealFileInFinder(outPath); } catch (e) {
+      // Reveal failure isn't fatal — the file IS produced.
+      console.warn("Reveal failed:", e);
     }
   }
 
-  // Single-password modal — reuses the existing #password-modal sheet
-  // but hides the confirm field since we're DECRYPTING (no risk of
-  // a typo silently locking the user out — wrong password just errors).
+  // Single-password modal — same #password-modal sheet, switched into
+  // decrypt mode via a `data-mode="decrypt"` attribute. CSS hides the
+  // Confirm field so we don't have to mutate inline styles (the prior
+  // version's `inp2.parentNode.style.display="none"` broke the modal
+  // because parentNode was the WHOLE .modal container, not just a
+  // wrapper around the input — operator-reported force-close 2026-05-18).
   function promptDecryptPassword(srcLabel) {
     return new Promise((resolve) => {
       const veil = $("#password-modal");
@@ -608,33 +621,33 @@
       const err  = $("#password-error");
       const btnOk = $("#btn-password-ok");
       const btnCancel = $("#btn-password-cancel");
-      const title = veil.querySelector("h2");
-      const subtitle = veil.querySelector("p");
-      const confirmLabel = veil.querySelector('label[for="password-confirm"]');
-      // Rewrite the modal copy for decrypt mode.
-      const oldTitle = title.textContent;
-      const oldSubtitle = subtitle.textContent;
-      title.textContent = "Password for " + (srcLabel ? srcLabel.split("/").pop() : "this archive");
-      subtitle.textContent = "Enter the password that was used when this archive was created.";
-      inp2.parentNode.style.display = "none";
-      confirmLabel.style.display = "none";
-      inp1.value = ""; inp2.value = ""; err.textContent = "";
+      const title = $("#password-title");
+      const subtitle = $("#password-subtitle");
+      if (!veil || !inp1 || !btnOk || !btnCancel) {
+        resolve(null); // defensive — modal wasn't rendered yet
+        return;
+      }
+      veil.setAttribute("data-mode", "decrypt");
+      if (title) title.textContent = "Password for " + (srcLabel ? srcLabel.split("/").pop() : "this archive");
+      if (subtitle) subtitle.textContent = "Enter the password that was used when this archive was created.";
+      inp1.value = "";
+      if (inp2) inp2.value = "";
+      if (err) err.textContent = "";
       veil.hidden = false;
       setTimeout(() => inp1.focus(), 50);
       const cleanup = (val) => {
         veil.hidden = true;
+        veil.setAttribute("data-mode", "encrypt");
+        if (title) title.textContent = "Password-protect this backup";
+        if (subtitle) subtitle.textContent =
+          "DumpSock will encrypt the .zip with AES-256-GCM. The key is derived from your password via PBKDF2-SHA256 (200,000 iterations).";
         btnOk.onclick = null;
         btnCancel.onclick = null;
-        // Restore the modal to encrypt-mode copy for next time.
-        title.textContent = oldTitle;
-        subtitle.textContent = oldSubtitle;
-        inp2.parentNode.style.display = "";
-        confirmLabel.style.display = "";
         resolve(val);
       };
       btnOk.onclick = () => {
         const a = inp1.value;
-        if (!a) { err.textContent = "Password required."; return; }
+        if (!a) { if (err) err.textContent = "Password required."; return; }
         cleanup(a);
       };
       btnCancel.onclick = () => cleanup(null);
