@@ -50,7 +50,10 @@ type jobHandle struct {
 func NewApp() *App { return &App{} }
 
 // Startup is wired via Wails options.OnStartup. Loads persisted config
-// (best-effort — failures fall back to zero-value config, never block).
+// (best-effort — failures fall back to zero-value config, never block)
+// and discovers any pre-existing backup folders sitting in the default
+// locations so the Backups tab populates immediately even for runs
+// that predate the auto-register fix.
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 	if c, err := loadConfig(); err == nil {
@@ -58,6 +61,7 @@ func (a *App) Startup(ctx context.Context) {
 		a.cfg = c
 		a.mu.Unlock()
 	}
+	a.discoverBackups()
 }
 
 // -----------------------------------------------------------------------------
@@ -198,11 +202,72 @@ type BackupEntry struct {
 	Archives    []string         `json:"archives,omitempty"`
 }
 
+// discoverBackups scans likely parent directories (the default
+// `~/DumpSock` root + the parent of LastOutput) one level deep, looks
+// for folders containing a `.dumpsock.json` marker, and merges them
+// into KnownBackups. Runs on Startup + on every ListBackups call so
+// backups produced before the auto-register fix (2026-05-18) still
+// appear, and so manually-copied backup folders are picked up.
+//
+// Idempotent: existing KnownBackups entries are preserved; new ones
+// are appended with dedup. Bounded — only the FIRST level beneath
+// each candidate parent is scanned (no recursion).
+func (a *App) discoverBackups() {
+	candidates := map[string]bool{}
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		candidates[filepath.Join(home, "DumpSock")] = true
+	}
+	a.mu.Lock()
+	if a.cfg.LastOutput != "" {
+		candidates[filepath.Dir(a.cfg.LastOutput)] = true
+	}
+	known := make(map[string]bool, len(a.cfg.KnownBackups))
+	for _, p := range a.cfg.KnownBackups {
+		known[p] = true
+	}
+	a.mu.Unlock()
+
+	var added []string
+	for parent := range candidates {
+		fi, err := os.Stat(parent)
+		if err != nil || !fi.IsDir() {
+			continue
+		}
+		entries, err := os.ReadDir(parent)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if !e.IsDir() {
+				continue
+			}
+			full := filepath.Join(parent, e.Name())
+			if known[full] {
+				continue
+			}
+			if _, err := os.Stat(filepath.Join(full, backup.MetadataFileName)); err != nil {
+				continue
+			}
+			added = append(added, full)
+			known[full] = true
+		}
+	}
+	if len(added) == 0 {
+		return
+	}
+	a.mu.Lock()
+	a.cfg.KnownBackups = append(a.cfg.KnownBackups, added...)
+	cfg := a.cfg
+	a.mu.Unlock()
+	_ = saveConfig(cfg)
+}
+
 // ListBackups returns one BackupEntry per directory in KnownBackups,
 // in newest-completion-first order. Entries whose path is unreachable
 // (volume unplugged, directory deleted) still appear — the GUI shows
 // them with a "plug the disk back in" hint.
 func (a *App) ListBackups() ([]BackupEntry, error) {
+	a.discoverBackups() // catch any pre-existing folders we haven't seen yet
 	a.mu.Lock()
 	paths := append([]string(nil), a.cfg.KnownBackups...)
 	a.mu.Unlock()
@@ -607,10 +672,10 @@ func (a *App) PickArchiveToDecrypt() (string, error) {
 }
 
 // DecryptArchive runs backup.DecryptFile on src using password. If
-// outPath is empty we pick <src-without-.aes> and refuse to overwrite
-// an existing file. Returns the produced path on success. Surfaced
-// to the frontend so a "Decrypt this archive" button on the Backups
-// tab can call straight in.
+// outPath is empty we pick <src-without-.aes>, auto-suffixing -1, -2,
+// … if that name is already taken (so the operator can re-decrypt
+// without manually clearing the prior output). Returns the produced
+// path on success.
 func (a *App) DecryptArchive(srcPath, outPath, password string) (string, error) {
 	if srcPath == "" {
 		return "", errors.New("DecryptArchive: empty srcPath")
@@ -624,10 +689,32 @@ func (a *App) DecryptArchive(srcPath, outPath, password string) (string, error) 
 			outPath = srcPath + ".decrypted"
 		}
 	}
+	// Auto-suffix when the chosen name already exists. Prior versions
+	// failed loudly with "output already exists" — operator-reported
+	// friction 2026-05-18.
 	if _, err := os.Stat(outPath); err == nil {
-		return "", fmt.Errorf("output already exists: %s", outPath)
+		outPath = nextFreeName(outPath)
 	}
 	return backup.DecryptFile(srcPath, outPath, password)
+}
+
+// nextFreeName returns base if it doesn't exist, otherwise base with
+// -1, -2, … suffix inserted before the extension. Bounded at 1000
+// attempts. Mirrors backup.freeName but isn't exported there; kept
+// inline here to avoid widening the package API for a one-call use.
+func nextFreeName(base string) string {
+	if _, err := os.Stat(base); err != nil {
+		return base
+	}
+	ext := filepath.Ext(base)
+	stem := strings.TrimSuffix(base, ext)
+	for i := 1; i < 1000; i++ {
+		cand := fmt.Sprintf("%s-%d%s", stem, i, ext)
+		if _, err := os.Stat(cand); err != nil {
+			return cand
+		}
+	}
+	return fmt.Sprintf("%s-%d%s", stem, 999, ext)
 }
 
 // BiometricsAvailable reports whether the OS can present a Touch ID

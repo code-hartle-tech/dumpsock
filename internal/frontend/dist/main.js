@@ -1422,19 +1422,25 @@
       });
     });
 
-    // Device row click → open Finder at the home folder and tell the
-    // user where to find their iPhone. We don't try to auto-select the
-    // iPhone in Finder's sidebar (Finder's AppleScript dictionary has no
-    // `sidebar` property; System Events GUI-scripting works but would
-    // require an Accessibility TCC prompt).
+    // Device row click → open the current backup folder in Finder
+    // (operator preference 2026-05-18: "clicking here should open
+    // current backup folder"). Falls back to home + a hint when no
+    // output directory is set yet (first-run state).
     const deviceRow = $("#device-row");
     if (deviceRow) deviceRow.addEventListener("click", async () => {
-      const dev = state.device || {};
+      if (state.outputDir) {
+        try {
+          await window.go.gui.App.RevealInFinder(state.outputDir);
+          return;
+        } catch (e) {
+          toast("Couldn't open backup folder: " + (e && e.message || e));
+        }
+      }
       try {
-        await window.go.gui.App.RevealDeviceInFinder(dev.name || "");
-        toast("Opened Finder. Your iPhone is in the sidebar under Locations — click it there to manage.", 5500);
+        await window.go.gui.App.RevealDeviceInFinder("");
+        toast("Pick a backup folder first (Dashboard → Change…), then click here to jump straight to it.", 6000);
       } catch (e) {
-        toast("Couldn't open Finder: " + (e.message || e));
+        toast("Couldn't open Finder: " + (e && e.message || e));
       }
     });
 
